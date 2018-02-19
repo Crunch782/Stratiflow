@@ -64,7 +64,7 @@ TEST_CASE("Stackwise Matmul")
 
     DiagonalMatrix<stratifloat,-1> mat = VectorX::Constant(8, 5.0f).asDiagonal();
 
-    f2 = Dim3MatMul<Map<const Array<stratifloat, -1, 1>, Aligned16>,stratifloat,stratifloat,5,6,8>(mat, f1);
+    f2 = Dim3MatMul<Map<const Array<stratifloat, -1, 1>, Aligned16>,stratifloat,stratifloat,6,6,8>(mat, f1);
 
     f1 *= 5.0f;
     REQUIRE(f2 == f1);

@@ -19,8 +19,11 @@ int main(int argc, char* argv[])
         state.x.Randomise(0.001);
 
         // remove means
-        state.x.u1.stack(0,0) -= IntegrateAllSpace(state.x.u1, L1, L2, L3)/L1/L2/L3/2;
-        state.x.b.stack(0,0) -= IntegrateAllSpace(state.x.b, L1, L2, L3)/L1/L2/L3/2;
+        if_root
+        {
+            state.x.u1.stack(0,0) -= IntegrateAllSpace(state.x.u1, L1, L2, L3)/L1/L2/L3/2;
+            state.x.b.stack(0,0) -= IntegrateAllSpace(state.x.b, L1, L2, L3)/L1/L2/L3/2;
+        } endif
     }
 
     if (argc == 3)

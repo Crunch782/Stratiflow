@@ -2,6 +2,10 @@
 
 #include <complex>
 
+#ifdef USE_MPI
+#include <mpi.h>
+#endif
+
 #ifdef USE_DOUBLE
     #define stratifloat double
     #define notstratifloat float
@@ -28,8 +32,19 @@
     #define f3_plan_dft_1d          fftw_plan_dft_1d
     #define f3_plan_dft_r2c_3d      fftw_plan_dft_r2c_3d
     #define f3_plan_dft_c2r_3d      fftw_plan_dft_c2r_3d
+    #define f3_mpi_plan_dft_r2c_3d  fftw_mpi_plan_dft_r2c_3d
+    #define f3_mpi_plan_dft_c2r_3d  fftw_mpi_plan_dft_c2r_3d
+    #define f3_mpi_plan_many_dft_r2c  fftw_mpi_plan_many_dft_r2c
+    #define f3_mpi_plan_many_dft_c2r  fftw_mpi_plan_many_dft_c2r
     #define f3_complex              fftw_complex
     #define f3_plan                 fftw_plan
+    #define f3_mpi_init             fftw_mpi_init
+    #define f3_mpi_cleanup          fftw_mpi_cleanup
+    #define f3_mpi_local_size_3d    fftw_mpi_local_size_3d
+
+    #ifdef USE_MPI
+        #define MPI_STRATIFLOAT MPI_DOUBLE
+    #endif
 #else
     #define stratifloat float
     #define notstratifloat double
@@ -56,8 +71,34 @@
     #define f3_plan_dft_1d          fftwf_plan_dft_1d
     #define f3_plan_dft_r2c_3d      fftwf_plan_dft_r2c_3d
     #define f3_plan_dft_c2r_3d      fftwf_plan_dft_c2r_3d
+    #define f3_mpi_plan_dft_r2c_3d  fftwf_mpi_plan_dft_r2c_3d
+    #define f3_mpi_plan_dft_c2r_3d  fftwf_mpi_plan_dft_c2r_3d
+    #define f3_mpi_plan_many_dft_r2c  fftwf_mpi_plan_many_dft_r2c
+    #define f3_mpi_plan_many_dft_c2r  fftwf_mpi_plan_many_dft_c2r
     #define f3_complex              fftwf_complex
     #define f3_plan                 fftwf_plan
+    #define f3_mpi_init             fftwf_mpi_init
+    #define f3_mpi_cleanup          fftwf_mpi_cleanup
+    #define f3_mpi_local_size_3d    fftwf_mpi_local_size_3d
+
+    #ifdef USE_MPI
+        #define MPI_STRATIFLOAT MPI_FLOAT
+    #endif
+#endif
+
+#ifdef USE_MPI
+    #define if_root \
+    { \
+    int if_rank;\
+    MPI_Comm_rank(MPI_COMM_WORLD, &if_rank); \
+    if (if_rank==0)
+
+    #define endif }
+#else
+    #define if_root \
+    if (true)
+
+    #define endif
 #endif
 
 constexpr stratifloat pi = 3.14159265358979;
@@ -68,16 +109,14 @@ constexpr stratifloat phi = 1.61803398874989;
 constexpr int LoopBlockSize = 16;
 
 // this is a (hopefully) cache efficient loop for transposes
-#define for3D(n1,n2,n3) \
+#define for2D(n1,n3) \
 for (int k3 = 0; k3 < n3; k3 += LoopBlockSize) { \
-for (int k2 = 0; k2 < n2; k2 += LoopBlockSize) { \
 for (int k1 = 0; k1 < n1; k1 += LoopBlockSize) { \
 for (int j3 = k3; j3 < std::min(n3, k3 + LoopBlockSize); j3++) { \
-for (int j2 = k2; j2 < std::min(n2, k2 + LoopBlockSize); j2++) { \
 for (int j1 = k1; j1 < std::min(n1, k1 + LoopBlockSize); j1++)
 
-#define endfor3D \
-}}}}}
+#define endfor2D \
+}}}
 
 using complex = std::complex<stratifloat>;
 

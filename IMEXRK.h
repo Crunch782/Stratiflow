@@ -25,7 +25,7 @@
 #define MatMulDim1 Dim1MatMul<Map<const Array<complex, -1, 1>, Aligned16>, stratifloat, complex, M1, N2, N3>
 #define MatMulDim2 Dim2MatMul<Map<const Array<complex, -1, 1>, Aligned16>, stratifloat, complex, M1, N2, N3>
 #define MatMulDim3 Dim3MatMul<Map<const Array<complex, -1, 1>, Aligned16>, stratifloat, complex, M1, N2, N3>
-#define MatMul1D Dim3MatMul<Map<const Array<stratifloat, -1, 1>, Aligned16>, stratifloat, stratifloat, N1, N2, N3>
+#define MatMul1D Dim3MatMul<Map<const Array<stratifloat, -1, 1>, Aligned16>, stratifloat, stratifloat, 2*M1, N2, N3>
 
 class IMEXRK
 {
@@ -344,21 +344,21 @@ public:
 
     void PlotAll(std::string filename, bool includeBackground) const
     {
-        PlotPressure(imageDirectory+"/pressure/"+filename, N2/2);
-        PlotBuoyancy(imageDirectory+"/buoyancy/"+filename, N2/2, includeBackground);
-        PlotVerticalVelocity(imageDirectory+"/u3/"+filename, N2/2);
-        PlotSpanwiseVelocity(imageDirectory+"/u2/"+filename, N2/2);
-        PlotStreamwiseVelocity(imageDirectory+"/u1/"+filename, N2/2, includeBackground);
-        PlotPerturbationVorticity(imageDirectory+"/perturbvorticity/"+filename, N2/2);
+        PlotPressure(imageDirectory+"/pressure/"+filename, 0);
+        PlotBuoyancy(imageDirectory+"/buoyancy/"+filename, 0, includeBackground);
+        PlotVerticalVelocity(imageDirectory+"/u3/"+filename, 0);
+        PlotSpanwiseVelocity(imageDirectory+"/u2/"+filename, 0);
+        PlotStreamwiseVelocity(imageDirectory+"/u1/"+filename, 0, includeBackground);
+        PlotPerturbationVorticity(imageDirectory+"/perturbvorticity/"+filename, 0);
 
         if (includeBackground)
         {
-            PlotSpanwiseVorticity(imageDirectory+"/vorticity/"+filename, N2/2);
+            PlotSpanwiseVorticity(imageDirectory+"/vorticity/"+filename, 0);
         }
         else
         {
-            //PlotPerturbationVorticity(imageDirectory+"/perturbvorticity/"+filename, N2/2);
-            //PlotBuoyancyBG(imageDirectory+"/buoyancyBG/"+filename, N2/2);
+            //PlotPerturbationVorticity(imageDirectory+"/perturbvorticity/"+filename, 0);
+            //PlotBuoyancyBG(imageDirectory+"/buoyancyBG/"+filename, 0);
         }
     }
 
@@ -698,6 +698,10 @@ public:
     void UpdateForTimestep()
     {
         std::cout << "Solving matices..." << std::endl;
+
+#ifdef USE_MPI
+        MPI_Bcast(&deltaT, 1, MPI_STRATIFLOAT, 0, MPI_COMM_WORLD);
+#endif
 
         h[0] = deltaT*8.0f/15.0f;
         h[1] = deltaT*2.0f/15.0f;

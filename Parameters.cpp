@@ -63,23 +63,26 @@ void CheckParameter(std::ifstream& paramFile, const std::string& name, int check
 
 void DumpParameters()
 {
-    std::ofstream paramFile;
-    paramFile.open("params.dat", std::fstream::out);
+    if_root
+    {
+        std::ofstream paramFile;
+        paramFile.open("params.dat", std::fstream::out);
 
-    paramFile << std::setprecision(30);
+        paramFile << std::setprecision(30);
 
-    PrintParam(N1);
-    PrintParam(N2);
-    PrintParam(N3);
-    PrintParam(ThreeDimensional);
-    PrintParam(EvolveBackground);
+        PrintParam(N1);
+        PrintParam(N2);
+        PrintParam(N3);
+        PrintParam(ThreeDimensional);
+        PrintParam(EvolveBackground);
 
-    PrintParam(L1);
-    PrintParam(L2);
-    PrintParam(L3);
-    PrintParam(Re);
-    PrintParam(Ri);
-    PrintParam(R);
+        PrintParam(L1);
+        PrintParam(L2);
+        PrintParam(L3);
+        PrintParam(Re);
+        PrintParam(Ri);
+        PrintParam(R);
+    } endif
 }
 
 void LoadParameters(const std::string& file)
@@ -103,18 +106,21 @@ void LoadParameters(const std::string& file)
 
 void PrintParameters()
 {
-    auto& paramFile = std::cout;
+    if_root
+    {
+        auto& paramFile = std::cout;
 
-    PrintParam(N1);
-    PrintParam(N2);
-    PrintParam(N3);
-    PrintParam(ThreeDimensional);
-    PrintParam(EvolveBackground);
+        PrintParam(N1);
+        PrintParam(N2);
+        PrintParam(N3);
+        PrintParam(ThreeDimensional);
+        PrintParam(EvolveBackground);
 
-    PrintParam(L1);
-    PrintParam(L2);
-    PrintParam(L3);
-    PrintParam(Re);
-    PrintParam(Ri);
-    PrintParam(R);
+        PrintParam(L1);
+        PrintParam(L2);
+        PrintParam(L3);
+        PrintParam(Re);
+        PrintParam(Ri);
+        PrintParam(R);
+    } endif
 }

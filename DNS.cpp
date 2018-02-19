@@ -10,9 +10,6 @@ int main(int argc, char *argv[])
     stratifloat integrateTarget = 40.0;
     stratifloat energy = 0.001;
 
-    f3_init_threads();
-    f3_plan_with_nthreads(omp_get_max_threads());
-
     std::cout << "Creating solver..." << std::endl;
     IMEXRK solver;
 
@@ -147,8 +144,6 @@ int main(int argc, char *argv[])
 
     std::cout << InnerProd(wIntegrated, wIntegrated, L3)/w2Integrated/integrateTarget << std::endl;
 
-
-    f3_cleanup_threads();
-
+    Cleanup();
     return 0;
 }

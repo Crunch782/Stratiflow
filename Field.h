@@ -13,6 +13,7 @@
 #include <iterator>
 #include <fstream>
 #include <random>
+#include <typeinfo>
 
 
 ArrayX VerticalPoints(stratifloat L, int N);
@@ -241,10 +242,29 @@ public:
     : _data(N1*N2*N3, 0)
     , _bc(bc)
     {
+#ifdef USE_MPI
+        ptrdiff_t dims[] = {N2, N1};
+
+        if(typeid(T)==typeid(stratifloat))
+        {
+            dims[1] /= 2;
+        }
+        fftw_mpi_local_size_many(2, dims, N3,
+                                 FFTW_MPI_DEFAULT_BLOCK, MPI_COMM_WORLD,
+                                 &localN2, &localN2start);
+#else
+        localN2 = N2;
+        localN2start = 0;
+#endif
+        localN2end = localN2start + localN2;
     }
 
     Field(const Field<T, N1, N2, N3>& other)
     : _data(other._data)
+    , _bc(other._bc)
+    , localN2(other.localN2)
+    , localN2start(other.localN2start)
+    , localN2end(other.localN2end)
     {
         assert(other.BC() == BC());
     }
@@ -299,7 +319,7 @@ public:
         {
             for (int j1=0; j1<N1; j1++)
             {
-                for (int j2=0; j2<N2; j2++)
+                for (int j2=localN2start; j2<localN2end; j2++)
                 {
                     if (!(stack(j1, j2)+0.001).isApprox(other.stack(j1, j2) + 0.001, 0.05))
                     {
@@ -369,22 +389,41 @@ public:
     {
         assert(n1>=0 && n1<N1);
         assert(n2>=0 && n2<N2);
+        assert(n2>=localN2start && n2<localN2end);
         return Stack(&Raw()[(N1*n2 + n1)*N3], N3);
     }
     virtual ConstStack stack(int n1, int n2) const override
     {
         assert(n1>=0 && n1<N1);
         assert(n2>=0 && n2<N2);
+        assert(n2>=localN2start && n2<localN2end);
         return ConstStack(&Raw()[(N1*n2 + n1)*N3], N3);
     }
 
     T& operator()(int n1, int n2, int n3)
     {
+        assert(n1>=0 && n1<N1);
+        assert(n2>=0 && n2<N2);
+        assert(n2>=localN2start && n2<localN2end);
+
         return Raw()[(N1*n2 + n1)*N3 + n3];
     }
     T operator()(int n1, int n2, int n3) const
     {
+        assert(n1>=0 && n1<N1);
+        assert(n2>=0 && n2<N2);
+        assert(n2>=localN2start && n2<localN2end);
+
         return Raw()[(N1*n2 + n1)*N3 + n3];
+    }
+
+    T* LocalRaw()
+    {
+        return &(Raw()[N1*N3*LocalN2start()]);
+    }
+    const T* LocalRaw() const
+    {
+        return &(Raw()[N1*N3*LocalN2start()]);
     }
 
     T* Raw()
@@ -420,9 +459,9 @@ public:
     virtual void ParallelPerStack(std::function<void(int j1, int j2)> f) const
     {
         #pragma omp parallel for
-        for (int j1=0; j1<N1; j1++)
+        for (int j2=localN2start; j2<localN2end; j2++)
         {
-            for (int j2=0; j2<N2; j2++)
+            for (int j1=0; j1<N1; j1++)
             {
                 f(j1, j2);
             }
@@ -473,6 +512,14 @@ public:
     {
         return _bc;
     }
+    ptrdiff_t LocalN2() const { return localN2; }
+    ptrdiff_t LocalN2start() const { return localN2start; }
+    ptrdiff_t LocalN2end() const { return localN2end; }
+
+protected:
+    ptrdiff_t localN2;
+    ptrdiff_t localN2start;
+    ptrdiff_t localN2end;
 
 private:
 
@@ -598,16 +645,16 @@ private:
 };
 
 template<int N1, int N2, int N3>
-class Nodal1D : public Field1D<stratifloat, N1, N2, N3>
+class Nodal1D : public Field1D<stratifloat, 2*(N1/2+1), N2, N3>
 {
 public:
-    using Field1D<stratifloat, N1, N2, N3>::Field1D;
+    using Field1D<stratifloat, 2*(N1/2+1), N2, N3>::Field1D;
 
     template<typename A>
-    const Nodal1D<N1, N2, N3>& operator=(const StackContainer<A,stratifloat,N1,N2,N3>& other)
+    const Nodal1D<N1, N2, N3>& operator=(const StackContainer<A,stratifloat,2*(N1/2+1),N2,N3>& other)
     {
         assert(other.BC() == this->BC());
-        Field1D<stratifloat, N1, N2, N3>::operator=(other);
+        Field1D<stratifloat, 2*(N1/2+1), N2, N3>::operator=(other);
         return *this;
     }
 
@@ -626,38 +673,54 @@ template<int N1, int N2, int N3>
 class ModalField;
 
 template<int N1, int N2, int N3>
-class NodalField : public Field<stratifloat, N1, N2, N3>
+class NodalField : public Field<stratifloat, 2*(N1/2+1), N2, N3>
 {
+    static constexpr int actualN1 = 2*(N1/2 + 1);
 public:
     template<typename A>
-    const NodalField<N1, N2, N3>& operator=(const StackContainer<A,stratifloat,N1,N2,N3>& other)
+    const NodalField<N1, N2, N3>& operator=(const StackContainer<A,stratifloat,actualN1,N2,N3>& other)
     {
-        Field<stratifloat, N1, N2, N3>::operator=(other);
+        Field<stratifloat, actualN1, N2, N3>::operator=(other);
         return *this;
     }
 
     NodalField(BoundaryCondition bc)
-    : Field<stratifloat, N1, N2, N3>(bc)
+    : Field<stratifloat, actualN1, N2, N3>(bc)
     {
-        int dims[] = {N2, N1};
-        int odims[] = {N2, N1/2+1};
-
-        std::vector<stratifloat, aligned_allocator<stratifloat>> inputData(N1*N2*N3);
+        std::vector<stratifloat, aligned_allocator<stratifloat>> inputData(2*(N1/2+1)*N2*N3);
         std::vector<complex, aligned_allocator<complex>> outputData((N1/2+1)*N2*N3);
+
+#ifdef USE_MPI
+        ptrdiff_t dims[] = {N2, N1};
+
+        auto plan = fftw_mpi_plan_many_dft_r2c(2,
+                                               dims,
+                                               N3,
+                                               FFTW_MPI_DEFAULT_BLOCK,
+                                               FFTW_MPI_DEFAULT_BLOCK,
+                                               inputData.data(),
+                                               reinterpret_cast<f3_complex*>(outputData.data()),
+                                               MPI_COMM_WORLD,
+                                               FFTW_PATIENT);
+#else
+        int dims[] = {N2, N1};
+        int iembed[] = {N2, 2*(N1/2+1)};
+        int oembed[] = {N2, N1/2+1};
 
         auto plan = f3_plan_many_dft_r2c(2,
                                         dims,
                                         N3,
                                         inputData.data(),
-                                        dims,
+                                        iembed,
                                         N3,
                                         1,
                                         reinterpret_cast<f3_complex*>(outputData.data()),
-                                        odims,
+                                        oembed,
                                         N3,
                                         1,
                                         FFTW_PATIENT);
-
+#endif
+        f3_destroy_plan(plan);
     }
 
     void ToModal(ModalField<N1,N2,N3>& other, bool filter = true) const
@@ -666,20 +729,36 @@ public:
 
         // do FFT in 1st and 2nd dimensions
 
+#ifdef USE_MPI
+        ptrdiff_t dims[] = {N2, N1};
+
+        auto plan = fftw_mpi_plan_many_dft_r2c(2,
+                                               dims,
+                                               N3,
+                                               FFTW_MPI_DEFAULT_BLOCK,
+                                               FFTW_MPI_DEFAULT_BLOCK,
+                                               const_cast<stratifloat*>(this->LocalRaw()),
+                                               reinterpret_cast<f3_complex*>(other.LocalRaw()),
+                                               MPI_COMM_WORLD,
+                                               FFTW_PATIENT);
+#else
         int dims[] = {N2, N1};
-        int odims[] = {N2, N1/2+1};
+        int iembed[] = {N2, 2*(N1/2+1)};
+        int oembed[] = {N2, N1/2+1};
+
         auto plan = f3_plan_many_dft_r2c(2,
                                         dims,
                                         N3,
                                         const_cast<stratifloat*>(this->Raw()),
-                                        dims,
+                                        iembed,
                                         N3,
                                         1,
                                         reinterpret_cast<f3_complex*>(other.Raw()),
-                                        odims,
+                                        oembed,
                                         N3,
                                         1,
                                         FFTW_PATIENT);
+#endif
         f3_execute(plan);
         f3_destroy_plan(plan);
 
@@ -690,9 +769,15 @@ public:
         }
         else
         {
-            for (int j=0; j<N3*N2*(N1/2+1); j++)
+            for (int j2=localN2start; j2<localN2end; j2++)
             {
-                other.Raw()[j] *= 1/static_cast<stratifloat>(N1*N2);
+                for (int j1=0; j1<N1; j1++)
+                {
+                    for (int j3=0; j3<N3; j3++)
+                    {
+                        other(j1,j2,j3) *= 1/static_cast<stratifloat>(N1*N2);
+                    }
+                }
             }
         }
     }
@@ -709,6 +794,10 @@ public:
                 max = norm;
             }
         }
+
+#ifdef USE_MPI
+        MPI_Allreduce(&max, &max, 1, MPI_STRATIFLOAT, MPI_MAX, MPI_COMM_WORLD);
+#endif
 
         return max;
     }
@@ -728,9 +817,9 @@ public:
         ArrayX y = FourierPoints(L2, N2);
         ArrayX z = VerticalPoints(L3, N3);
 
-        for (int j1=0; j1<N1; j1++)
+        for (int j2=localN2start; j2<localN2end; j2++)
         {
-            for (int j2=0; j2<N2; j2++)
+            for (int j1=0; j1<N1; j1++)
             {
                 for (int j3=0; j3<N3; j3++)
                 {
@@ -749,8 +838,13 @@ public:
         return *this;
     }
 
-    using Field<stratifloat, N1, N2, N3>::operator-=;
+    using Field<stratifloat, actualN1, N2, N3>::operator-=;
+    using Field<stratifloat, actualN1, N2, N3>::localN2start;
+    using Field<stratifloat, actualN1, N2, N3>::localN2end;
 };
+
+template<int N1, int N2, int N3>
+constexpr int NodalField<N1,N2,N3>::actualN1;
 
 template<int N1, int N2, int N3>
 class ModalField : public Field<complex, N1/2+1, N2, N3>
@@ -758,35 +852,50 @@ class ModalField : public Field<complex, N1/2+1, N2, N3>
     static constexpr int actualN1 = N1/2 + 1;
 public:
     template<typename A>
-    const ModalField<N1, N2, N3>& operator=(const StackContainer<A,complex, N1/2+1, N2, N3>& other)
+    const ModalField<N1, N2, N3>& operator=(const StackContainer<A,complex, actualN1, N2, N3>& other)
     {
-        Field<complex, N1/2+1, N2, N3>::operator=(other);
+        Field<complex, actualN1, N2, N3>::operator=(other);
         return *this;
     }
 
     ModalField(BoundaryCondition bc)
-    : Field<complex, N1/2+1, N2, N3>(bc)
+    : Field<complex, actualN1, N2, N3>(bc)
     {
         inputData.resize(actualN1*N2*N3);
 
-        std::vector<stratifloat, aligned_allocator<stratifloat>> outputData(N1*N2*N3);
+        std::vector<stratifloat, aligned_allocator<stratifloat>> outputData(2*actualN1*N2*N3);
 
+#ifdef USE_MPI
+        ptrdiff_t dims[] = {N2, N1};
+
+        auto plan = f3_mpi_plan_many_dft_c2r(2,
+                                dims,
+                                N3,
+                                FFTW_MPI_DEFAULT_BLOCK,
+                                FFTW_MPI_DEFAULT_BLOCK,
+                                reinterpret_cast<f3_complex*>(inputData.data()),
+                                outputData.data(),
+                                MPI_COMM_WORLD,
+                                FFTW_PATIENT);
+
+#else
         int dims[] = {N2, N1};
-        int idims[] = {N2, actualN1};
+        int iembed[] = {N2, actualN1};
+        int oembed[] = {N2, 2*actualN1};
 
         auto plan = f3_plan_many_dft_c2r(2,
                                 dims,
                                 N3,
                                 reinterpret_cast<f3_complex*>(inputData.data()),
-                                idims,
+                                iembed,
                                 N3,
                                 1,
                                 outputData.data(),
-                                dims,
+                                oembed,
                                 N3,
                                 1,
                                 FFTW_PATIENT);
-
+#endif
     }
 
 
@@ -797,25 +906,42 @@ public:
         // do IFT in 1st and 2nd dimensions
 
         // make a copy of the input data as it is modified by the transform
-        for (unsigned int j=0; j<actualN1*N2*N3; j++)
+        for (unsigned int j=0; j<actualN1*this->LocalN2()*N3; j++)
         {
-            inputData[j] = this->Raw()[j];
+            inputData[j] = this->LocalRaw()[j];
         }
 
+#ifdef USE_MPI
+        ptrdiff_t dims[] = {N2, N1};
+
+        auto plan = f3_mpi_plan_many_dft_c2r(2,
+                                dims,
+                                N3,
+                                FFTW_MPI_DEFAULT_BLOCK,
+                                FFTW_MPI_DEFAULT_BLOCK,
+                                reinterpret_cast<f3_complex*>(inputData.data()),
+                                other.LocalRaw(),
+                                MPI_COMM_WORLD,
+                                FFTW_PATIENT);
+
+#else
         int dims[] = {N2, N1};
-        int idims[] = {N2, actualN1};
+        int iembed[] = {N2, actualN1};
+        int oembed[] = {N2, 2*actualN1};
+
         auto plan = f3_plan_many_dft_c2r(2,
                                         dims,
                                         N3,
                                         reinterpret_cast<f3_complex*>(inputData.data()),
-                                        idims,
+                                        iembed,
                                         N3,
                                         1,
                                         other.Raw(),
-                                        dims,
+                                        oembed,
                                         N3,
                                         1,
                                         FFTW_PATIENT);
+#endif
         f3_execute(plan);
         f3_destroy_plan(plan);
     }
@@ -827,7 +953,7 @@ public:
             #pragma omp parallel for collapse(2)
             for (int j1=N1/3; j1<actualN1; j1++)
             {
-                for (int j2=0; j2<N2; j2++)
+                for (int j2=localN2start; j2<localN2end; j2++)
                 {
                     this->stack(j1, j2).setZero();
                 }
@@ -836,12 +962,14 @@ public:
 
         if (N2>2)
         {
-            #pragma omp parallel for collapse(2)
             for (int j2=N2/3; j2<=2*N2/3; j2++)
             {
-                for (int j1=0; j1<actualN1; j1++)
+                if (j2>=localN2start && j2 < localN2end)
                 {
-                    this->stack(j1, j2).setZero();
+                    for (int j1=0; j1<actualN1; j1++)
+                    {
+                        this->stack(j1, j2).setZero();
+                    }
                 }
             }
         }
@@ -876,11 +1004,17 @@ public:
             {
                 for (int j2=0; j2<0.5*cutoff*N2; j2++)
                 {
-                    this->operator()(j1,j2,j3) = rng(generator) + i*rng(generator);
+                    if (j2>=localN2start && j2 < localN2end)
+                    {
+                        this->operator()(j1,j2,j3) = rng(generator) + i*rng(generator);
+                    }
                 }
                 for (int j2=N2-1; j2>(1-0.5*cutoff)*N2; j2--)
                 {
-                    this->operator()(j1,j2,j3) = rng(generator) + i*rng(generator);
+                    if (j2>=localN2start && j2 < localN2end)
+                    {
+                        this->operator()(j1,j2,j3) = rng(generator) + i*rng(generator);
+                    }
                 }
             }
         }
@@ -898,8 +1032,14 @@ public:
             {
                 for (int j2=0; j2<halfMaxN2; j2++)
                 {
-                    f(j1, j2);
-                    f(j1, N2-1-j2);
+                    if (j2>=localN2start && j2 < localN2end)
+                    {
+                        f(j1, j2);
+                    }
+                    if (N2-1-j2>=localN2start && N2-1-j2 < localN2end)
+                    {
+                        f(j1, N2-1-j2);
+                    }
                 }
             }
         }
@@ -912,6 +1052,9 @@ public:
             }
         }
     }
+
+    using Field<complex, actualN1, N2, N3>::localN2start;
+    using Field<complex, actualN1, N2, N3>::localN2end;
 
     void Antisymmetrise()
     {
@@ -946,6 +1089,7 @@ public:
         //     } endfor3D
         // }
     }
+
 
 private:
     static std::vector<complex, aligned_allocator<complex>> inputData;

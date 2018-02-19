@@ -23,8 +23,26 @@ FFTW_REDFT00
 #define fftwf_cleanup_threads fftw_cleanup_threads
 
 #else
+
+#ifdef USE_MPI
+#include <fftw3-mpi.h>
+#else
 #include <fftw3.h>
+#endif
+
 #endif
 
 // this should not be a bottleneck, so we do it in a fairly inefficient way
 void Perform1DR2R(int size, const stratifloat* in, stratifloat* out, f3_r2r_kind kind);
+
+void Setup();
+void Cleanup();
+
+// hackish solution to ensure mpi is initialised when we need it
+class InitialiserClass {
+public:
+    InitialiserClass() { if (counter++ == 0) Setup(); }
+private:
+    static int counter;
+};
+static InitialiserClass initialiser;

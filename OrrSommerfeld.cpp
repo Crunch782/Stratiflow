@@ -236,28 +236,32 @@ stratifloat EigenModes(stratifloat k, NeumannModal& u1, NeumannModal& u2, Dirich
 
     auto x = FourierPoints(L1, N1);
 
-    for3D(N1,N2,N3)
+
+    for (int j2=W.LocalN2start(); j2<W.LocalN2end(); j2++)
     {
-        complex w_hat_j;
-        complex b_hat_j;
-        if (EnforceSymmetry)
+        for2D(N1,N3)
         {
-            // eigenvalues come in complex conjugate pairs, with hermitian symmetry of eigenfunctions
-            // make sure we include both parts equally
-            w_hat_j = w_hat.Get()(j3) + std::conj(w_hat.Get()(N3-j3-1));
-            b_hat_j = b_hat.Get()(j3) + std::conj(b_hat.Get()(N3-j3-1));
-        }
-        else
-        {
-            w_hat_j = w_hat.Get()(j3);
-            b_hat_j = b_hat.Get()(j3);
-        }
+            complex w_hat_j;
+            complex b_hat_j;
+            if (EnforceSymmetry)
+            {
+                // eigenvalues come in complex conjugate pairs, with hermitian symmetry of eigenfunctions
+                // make sure we include both parts equally
+                w_hat_j = w_hat.Get()(j3) + std::conj(w_hat.Get()(N3-j3-1));
+                b_hat_j = b_hat.Get()(j3) + std::conj(b_hat.Get()(N3-j3-1));
+            }
+            else
+            {
+                w_hat_j = w_hat.Get()(j3);
+                b_hat_j = b_hat.Get()(j3);
+            }
 
-        W(j1,j2,j3) = real(w_hat_j * exp(i*k*x(j1)));
+            W(j1,j2,j3) = real(w_hat_j * exp(i*k*x(j1)));
 
-        // todo: make consistent the definition of b
-        B(j1,j2,j3) = -real(b_hat_j * exp(i*k*x(j1)));
-    } endfor3D
+            // todo: make consistent the definition of b
+            B(j1,j2,j3) = -real(b_hat_j * exp(i*k*x(j1)));
+        } endfor2D
+    }
 
     W.ToModal(u3);
     B.ToModal(b);

@@ -2,15 +2,17 @@
 
 #include <cassert>
 #include <vector>
+#include <iostream>
+#include <omp.h>
 
 #ifdef USE_CUDA
 
-int fftw_init_threads() 
-{ 
-    return 0; 
+int fftw_init_threads()
+{
+    return 0;
 }
 
-void fftw_plan_with_nthreads(int nthreads) 
+void fftw_plan_with_nthreads(int nthreads)
 {
 }
 
@@ -76,10 +78,10 @@ void Perform1DR2R(int size, const stratifloat* in, stratifloat* out, f3_r2r_kind
         }
     }
 
-    auto plan = f3_plan_dft_1d(fftSize, 
-                               reinterpret_cast<f3_complex*>(fftData.data()), 
-                               reinterpret_cast<f3_complex*>(fftData.data()), 
-                               FFTW_FORWARD, 
+    auto plan = f3_plan_dft_1d(fftSize,
+                               reinterpret_cast<f3_complex*>(fftData.data()),
+                               reinterpret_cast<f3_complex*>(fftData.data()),
+                               FFTW_FORWARD,
                                FFTW_ESTIMATE);
     assert(plan);
     f3_execute(plan);
@@ -113,3 +115,48 @@ void Perform1DR2R(int size, const stratifloat* in, stratifloat* out, f3_r2r_kind
 }
 
 #endif
+
+void Setup()
+{
+    printf("Setting up Stratiflow\n");
+    #ifdef USE_MPI
+    printf("Initialising MPI...\n");
+    if (MPI_Init(nullptr, nullptr) == MPI_SUCCESS)
+    {
+        f3_mpi_init();
+        std::cout << "  Done" << std::endl;
+    }
+    else
+    {
+        printf("  MPI already setup\n");
+    }
+
+
+    #elif defined(USE_OMP)
+
+    f3_init_threads();
+    f3_plan_with_nthreads(omp_get_max_threads());
+
+    #else
+
+    f3_init_threads();
+    f3_plan_with_nthreads(1);
+
+    #endif
+}
+
+void Cleanup()
+{
+    #ifdef USE_MPI
+
+    f3_mpi_cleanup();
+    MPI_Finalize();
+
+    #else
+
+    f3_cleanup_threads();
+
+    #endif
+}
+
+int InitialiserClass::counter;

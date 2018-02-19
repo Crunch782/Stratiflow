@@ -23,4 +23,5 @@ int main(int argc, char* argv[])
     long totalTime = std::chrono::duration_cast<std::chrono::milliseconds>(tAfter-tBefore).count();
 
     std::cout << "Total time: " << totalTime << std::endl;
+    Cleanup();
 }

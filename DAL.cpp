@@ -7,9 +7,6 @@ int main(int argc, char *argv[])
     const stratifloat residualTarget = 0.0000000001;
     const stratifloat minimumEpsilon = 0.000000001;
 
-    f3_init_threads();
-    f3_plan_with_nthreads(omp_get_max_threads());
-
     std::cout << "Creating solver..." << std::endl;
     IMEXRK solver;
 
@@ -305,7 +302,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    f3_cleanup_threads();
+    Cleanup();
 
     return 0;
 }
