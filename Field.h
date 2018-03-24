@@ -982,7 +982,7 @@ public:
         if (N3>2)
         {
             #pragma omp parallel for
-            for (int j3=2*N3/3; j3<N3; j3++)
+            for (int j3=2*N3/3-1; j3<N3; j3++)
             {
                 this->slice(j3).setZero();
             }
