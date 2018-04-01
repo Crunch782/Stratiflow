@@ -2,7 +2,7 @@
 
 int main(int argc, char *argv[])
 {
-    const stratifloat targetTime = 47.0;
+    const stratifloat targetTime = 32.0;
     const stratifloat energy = 0.001;
     const stratifloat residualTarget = 0.0000000001;
     const stratifloat minimumEpsilon = 0.000000001;

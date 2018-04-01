@@ -18,10 +18,10 @@ extern bool EnforceSymmetry;
 
 // SOLVER PARAMETERS //
 constexpr int N1 = 256; // Number of streamwise gridpoints
-constexpr int N2 = 1;   // Number of spanwise gridpoints
+constexpr int N2 = 16;   // Number of spanwise gridpoints
 constexpr int N3 = 256; // Number of vertical gridpoints
 
-constexpr bool ThreeDimensional = false; // whether to resolve spanwise direction
+constexpr bool ThreeDimensional = true; // whether to resolve spanwise direction
 constexpr bool EvolveBackground = true;
 constexpr bool SnapshotToMemory = false;
 
