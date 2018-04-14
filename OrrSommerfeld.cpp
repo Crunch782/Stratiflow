@@ -16,30 +16,38 @@ MatrixXc OrrSommerfeldLHS(stratifloat k)
     Dirichlet1D Bp;
     Bp = ddz(B);
 
-    auto D2w = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Dirichlet);
-    auto D2b = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Neumann);
+    auto D2 = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Dirichlet);
     auto I = MatrixX::Identity(N3, N3);
+
+    MatrixX reinterp = MatrixX::Zero(N3,N3);
+    reinterp.diagonal(1).setConstant(0.5);
+    reinterp.diagonal(0).head(N3-1).setConstant(0.5);
 
     MatrixX Um = U.Get().matrix().asDiagonal();
     MatrixX Uppm = Upp.Get().matrix().asDiagonal();
+
+    Um = reinterp * Um;
+    Uppm = reinterp * Uppm;
+
     MatrixX Bpm = Bp.Get().matrix().asDiagonal();
 
-    MatrixXc A11 = i*Um*(D2w-k*k*I)
+
+    MatrixXc A11 = i*Um*(D2-k*k*I)
                    -i*Uppm*I
-                   -(1/Re/k)*(D2w-k*k*I)*(D2w-k*k*I);
+                   -(1/Re/k)*(D2-k*k*I)*(D2-k*k*I);
 
     MatrixXc A12 = k*Ri*I;
 
     MatrixXc A21 = (-1/k)*Bpm;
 
     MatrixXc A22 = i*Um
-                   -(1/Pe/k)*(D2b-k*k*I);
+                   -(1/Pe/k)*(D2-k*k*I);
 
     // values at boundary must be zero, so ignore those bits
-    MatrixXc A(2*(N3-2)-1, 2*(N3-2)-1);
+    MatrixXc A(2*(N3-3), 2*(N3-3));
 
-    A << A11.block(1, 1, N3-3, N3-3), A12.block(1, 1, N3-3, N3-2),
-         A21.block(1, 1, N3-2, N3-3), A22.block(1, 1, N3-2, N3-2);
+    A << A11.block(1, 1, N3-3, N3-3), A12.block(1, 1, N3-3, N3-3),
+         A21.block(1, 1, N3-3, N3-3), A22.block(1, 1, N3-3, N3-3);
 
     return A;
 }
@@ -56,15 +64,10 @@ MatrixXc OrrSommerfeldRHS(stratifloat k)
     Dirichlet1D Bp;
     Bp = ddz(B);
 
-    auto D2w = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Dirichlet);
-    auto D2b = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Neumann);
+    auto D2 = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Dirichlet);
     auto I = MatrixX::Identity(N3, N3);
 
-    MatrixX Um = U.Get().matrix().asDiagonal();
-    MatrixX Uppm = Upp.Get().matrix().asDiagonal();
-    MatrixX Bpm = Bp.Get().matrix().asDiagonal();
-
-    MatrixXc C11 = -(D2w-k*k*I);
+    MatrixXc C11 = -(D2-k*k*I);
 
     MatrixXc C12 = MatrixXc::Zero(N3, N3);
 
@@ -73,10 +76,10 @@ MatrixXc OrrSommerfeldRHS(stratifloat k)
     MatrixXc C22 = -I;
 
     // values at boundary must be zero, so ignore those bits
-    MatrixXc C(2*(N3-2)-1, 2*(N3-2)-1);
+    MatrixXc C(2*(N3-3), 2*(N3-3));
 
-    C << C11.block(1, 1, N3-3, N3-3), C12.block(1, 1, N3-3, N3-2),
-         C21.block(1, 1, N3-2, N3-3), C22.block(1, 1, N3-2, N3-2);
+    C << C11.block(1, 1, N3-3, N3-3), C12.block(1, 1, N3-3, N3-3),
+         C21.block(1, 1, N3-3, N3-3), C22.block(1, 1, N3-3, N3-3);
 
     return C;
 }
@@ -102,7 +105,7 @@ ArrayXc CalculateEigenvalues(stratifloat k, MatrixXc *w_eigen, MatrixXc *b_eigen
 
     if (w_eigen!=nullptr)
     {
-        w_eigen->block(1,0,N3-3,N3-3) = solver.eigenvectors().block(0,0,N3-3,N3-3);
+        w_eigen->block(1,0,N3-3,2*(N3-3)) = solver.eigenvectors().block(0,0,N3-3,2*(N3-3));
 
         // dirichlet BC
         w_eigen->row(0).setZero();
@@ -112,11 +115,12 @@ ArrayXc CalculateEigenvalues(stratifloat k, MatrixXc *w_eigen, MatrixXc *b_eigen
 
     if (b_eigen!=nullptr)
     {
-        b_eigen->block(1,0,N3-2,N3-2) = solver.eigenvectors().block(N3-3,0,N3-2,N3-2);
+        b_eigen->block(1,0,N3-3,2*(N3-3)) = solver.eigenvectors().block(N3-3,0,N3-3,2*(N3-3));
 
-        // Neumann BC
-        b_eigen->row(0) = b_eigen->row(1);
-        b_eigen->row(N3-1) = b_eigen->row(N3-2);
+        // dirichlet BC
+        b_eigen->row(0).setZero();
+        b_eigen->row(N3-2).setZero();
+        b_eigen->row(N3-1).setZero();
     }
 
     return solver.eigenvalues();
@@ -157,8 +161,8 @@ stratifloat LargestGrowth(stratifloat k,
 
         return std::log(lambda)/T;
     }
-    MatrixXc w_eigen(N3,2*(N3-2));
-    MatrixXc b_eigen(N3,2*(N3-2));
+    MatrixXc w_eigen(N3,2*(N3-3));
+    MatrixXc b_eigen(N3,2*(N3-3));
 
     ArrayXc eigenvalues;
     if (w!=nullptr|| b!=nullptr)
@@ -171,10 +175,25 @@ stratifloat LargestGrowth(stratifloat k,
     }
 
     // find maximum growth
-    int jmax;
-    stratifloat largest = eigenvalues.real().maxCoeff(&jmax);
 
-    //std::cout << k << " : " << largest << std::endl;
+    stratifloat imagcutoff = 0.01;
+
+    stratifloat jmax = -1;
+    stratifloat largest;
+
+    for (int j=0; j<eigenvalues.size(); j++)
+    {
+        if (eigenvalues(j).imag() < imagcutoff && eigenvalues(j).imag() > -imagcutoff)
+        {
+            if (jmax==-1  || eigenvalues(j).real() > largest)
+            {
+                jmax = j;
+                largest = eigenvalues(j).real();
+            }
+        }
+    }
+
+    std::cout << eigenvalues(jmax) << std::endl;
 
     if (w!=nullptr)
     {
@@ -215,8 +234,8 @@ void EigenModes(stratifloat k, DirichletModal& u1, DirichletModal& u2, Dirichlet
         {
             // eigenvalues come in complex conjugate pairs, with hermitian symmetry of eigenfunctions
             // make sure we include both parts equally
-            w_hat_j = w_hat.Get()(j3) + std::conj(w_hat.Get()(N3-j3-1));
-            b_hat_j = b_hat.Get()(j3) + std::conj(b_hat.Get()(N3-j3-1));
+            w_hat_j = w_hat.Get()(j3) + std::conj(w_hat.Get()(N3-j3-2));
+            b_hat_j = b_hat.Get()(j3) + std::conj(b_hat.Get()(N3-j3-2));
         }
         else
         {
@@ -234,7 +253,7 @@ void EigenModes(stratifloat k, DirichletModal& u1, DirichletModal& u2, Dirichlet
     B.ToModal(b);
 
     // incompressibility gives us streamwise velocity
-    u1 = (i/k)*ddz(u3); // only one fourier mode so can just divide to integrate
+    u1 = Reinterpolate((i/k)*ddz(u3)); // only one fourier mode so can just divide to integrate
 
     // squire's theorem tells us spanwise velocity is zero
     u2.Zero();
