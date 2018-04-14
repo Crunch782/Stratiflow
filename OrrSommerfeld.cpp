@@ -193,11 +193,11 @@ stratifloat LargestGrowth(stratifloat k,
     return largest;
 }
 
-void EigenModes(stratifloat k, NeumannModal& u1, NeumannModal& u2, DirichletModal& u3, NeumannModal& b)
+void EigenModes(stratifloat k, DirichletModal& u1, DirichletModal& u2, DirichletModal& u3, DirichletModal& b)
 {
     // find the vertical profile of eigenmodes
     Field1D<complex, N1, N2, N3> w_hat(BoundaryCondition::Dirichlet);
-    Field1D<complex, N1, N2, N3> b_hat(BoundaryCondition::Neumann);
+    Field1D<complex, N1, N2, N3> b_hat(BoundaryCondition::Dirichlet);
 
     LargestGrowth(k, &w_hat, &b_hat);
 

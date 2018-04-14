@@ -36,20 +36,13 @@ public:
     long totalImplicit = 0;
     long totalDivergence = 0;
 
-    struct State
-    {
-        NeumannNodal U1;
-        NeumannNodal U2;
-        DirichletNodal U3;
-        NeumannNodal B;
-    };
-
 public:
     IMEXRK()
     : solveLaplacian(M1*N2)
     , implicitSolveVelocityNeumann{std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2)}
     , implicitSolveVelocityDirichlet{std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2)}
     , implicitSolveBuoyancyNeumann{std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2)}
+    , implicitSolveBuoyancyDirichlet{std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2)}
     {
         assert(ThreeDimensional || N2 == 1);
 
@@ -318,7 +311,7 @@ public:
     {
         if (includeBackground)
         {
-            nnTemp = B_ + B;
+            nnTemp = B_ + Reinterpolate(B);
             nnTemp.ToModal(boundedTemp);
             HeatPlot(boundedTemp, L1, L3, j2, filename);
         }
@@ -355,7 +348,7 @@ public:
 
     void PlotSpanwiseVorticity(std::string filename, int j2) const
     {
-        nnTemp = U1 + U_;
+        nnTemp = Reinterpolate(U1) + U_;
         nnTemp.ToModal(boundedTemp);
 
         decayingTemp = ddz(boundedTemp)+-1.0*ddx(u3);
@@ -372,7 +365,7 @@ public:
     {
         if (includeBackground)
         {
-            nnTemp = U1 + U_;
+            nnTemp = Reinterpolate(U1) + U_;
             nnTemp.ToModal(boundedTemp);
             HeatPlot(boundedTemp, L1, L3, j2, filename);
         }
@@ -401,7 +394,7 @@ public:
         }
     }
 
-    void SetInitial(const NeumannNodal& velocity1, const NeumannNodal& velocity2, const DirichletNodal& velocity3, const NeumannNodal& buoyancy)
+    void SetInitial(const DirichletNodal& velocity1, const DirichletNodal& velocity2, const DirichletNodal& velocity3, const DirichletNodal& buoyancy)
     {
         velocity1.ToModal(u1);
         velocity2.ToModal(u2);
@@ -409,7 +402,7 @@ public:
         buoyancy.ToModal(b);
     }
 
-    void SetInitial(const NeumannModal& velocity1, const NeumannModal& velocity2, const DirichletModal& velocity3, const NeumannModal& buoyancy)
+    void SetInitial(const DirichletModal& velocity1, const DirichletModal& velocity2, const DirichletModal& velocity3, const DirichletModal& buoyancy)
     {
         u1 = velocity1;
         u2 = velocity2;
@@ -434,7 +427,7 @@ public:
         SetBackground(Ubar, Bbar);
     }
 
-    void SetBackground(const NeumannModal& velocity1, const NeumannModal& velocity2, const DirichletModal& velocity3, const NeumannModal& buoyancy)
+    void SetBackground(const NeumannModal& velocity1, const DirichletModal& velocity2, const DirichletModal& velocity3, const NeumannModal& buoyancy)
     {
         u1_tot = velocity1;
         if (ThreeDimensional)
@@ -459,7 +452,7 @@ public:
     {
         static ArrayX z = VerticalPoints(L3, N3);
 
-        U1_tot = U1 + U_;
+        U1_tot = Reinterpolate(U1) + U_;
 
         stratifloat delta1 = L1/N1;
         stratifloat delta2 = L2/N2;
@@ -514,26 +507,26 @@ public:
         {
             if(dB_dz.Get()(j)>-0.001 && dB_dz.Get()(j)<0.001)
             {
-                nnTemp1D.Get()(j) = 0;
+                ndTemp1D.Get()(j) = 0;
             }
             else
             {
-                nnTemp1D.Get()(j) = 1/dB_dz.Get()(j);
+                ndTemp1D.Get()(j) = 1/dB_dz.Get()(j);
             }
         }
 
-        return 0.5f*InnerProd(b, b, L3, -Ri*nnTemp1D);
+        return 0.5f*InnerProd(b, b, L3, -Ri*ndTemp1D);
     }
     void RemoveDivergence(stratifloat pressureMultiplier=1.0f)
     {
         // construct the diverence of u
         if(ThreeDimensional)
         {
-            divergence = ddx(u1) + ddy(u2) + ddz(u3);
+            divergence = Reinterpolate(ddx(u1) + ddy(u2)) + ddz(u3);
         }
         else
         {
-            divergence = ddx(u1) + ddz(u3);
+            divergence = Reinterpolate(ddx(u1)) + ddz(u3);
         }
 
         // set value at boundary to zero
@@ -543,10 +536,10 @@ public:
         divergence.Solve(solveLaplacian, q);
 
         // subtract the gradient of this from the velocity
-        u1 -= ddx(q);
+        u1 -= Reinterpolate(ddx(q));
         if(ThreeDimensional)
         {
-            u2 -= ddy(q);
+            u2 -= Reinterpolate(ddy(q));
         }
         u3 -= ddz(q);
 
@@ -699,7 +692,7 @@ public:
     }
 
     void UpdateAdjointVariables(const NeumannModal& u1_total,
-                                const NeumannModal& u2_total,
+                                const DirichletModal& u2_total,
                                 const DirichletModal& u3_total,
                                 const NeumannModal& b_total)
     {
@@ -813,6 +806,12 @@ public:
                     Dirichlify(solve);
                     solve.makeCompressed();
                     implicitSolveVelocityDirichlet[k][j1*N2+j2].compute(solve);
+
+                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Pe).sparseView();
+                    Dirichlify(solve);
+                    solve.makeCompressed();
+                    implicitSolveBuoyancyDirichlet[k][j1*N2+j2].compute(solve);
+
                 }
 
             }
@@ -821,10 +820,10 @@ public:
 
     stratifloat Optimise(stratifloat& epsilon,
                          stratifloat E_0,
-                         NeumannModal& oldu1,
-                         NeumannModal& oldu2,
+                         DirichletModal& oldu1,
+                         DirichletModal& oldu2,
                          DirichletModal& oldu3,
-                         NeumannModal& oldb,
+                         DirichletModal& oldb,
                          Neumann1D& backgroundB,
                          Neumann1D& backgroundU)
     {
@@ -832,13 +831,13 @@ public:
 
         stratifloat lambda;
 
-        static NeumannModal dLdu1;
-        static NeumannModal dLdu2;
+        static DirichletModal dLdu1;
+        static DirichletModal dLdu2;
         static DirichletModal dLdu3;
         static DirichletModal dLdb;
 
-        static NeumannModal dEdu1;
-        static NeumannModal dEdu2;
+        static DirichletModal dEdu1;
+        static DirichletModal dEdu2;
         static DirichletModal dEdu3;
         static DirichletModal dEdb;
 
@@ -983,14 +982,14 @@ private:
         static NeumannNodal u1Above;
         static NeumannNodal u1Below;
 
-        static NeumannNodal u2Above;
-        static NeumannNodal u2Below;
+        static DirichletNodal u2Above;
+        static DirichletNodal u2Below;
 
         static DirichletNodal u3Above;
         static DirichletNodal u3Below;
 
-        static DirichletNodal bAbove;
-        static DirichletNodal bBelow;
+        static NeumannNodal bAbove;
+        static NeumannNodal bBelow;
 
         if (timeabove != fileAbove->first)
         {
@@ -1061,10 +1060,10 @@ private:
         solve.Solve(implicitSolveVelocityDirichlet[k], into);
     }
 
-    void CNSolveBuoyancy(NeumannModal& solve, NeumannModal& into, int k)
+    void CNSolveBuoyancy(DirichletModal& solve, DirichletModal& into, int k)
     {
         solve.ZeroEnds();
-        solve.Solve(implicitSolveBuoyancyNeumann[k], into);
+        solve.Solve(implicitSolveBuoyancyDirichlet[k], into);
     }
 
     void CNSolve1D(Neumann1D& solve, Neumann1D& into, int k, bool buoyancy = false)
@@ -1111,13 +1110,13 @@ private:
     void ExplicitCN(int k, bool evolveBackground = false)
     {
         //   old      last rk step         pressure         explicit CN
-        R1 = u1 + (h[k]*zeta[k])*r1 + (-h[k])*ddx(p) + (0.5f*h[k]/Re)*(MatMulDim1(dim1Derivative2, u1)+MatMulDim2(dim2Derivative2, u1)+MatMulDim3(dim3Derivative2Neumann, u1));
+        R1 = u1 + (h[k]*zeta[k])*r1 + (-h[k])*Reinterpolate(ddx(p)) + (0.5f*h[k]/Re)*(MatMulDim1(dim1Derivative2, u1)+MatMulDim2(dim2Derivative2, u1)+MatMulDim3(dim3Derivative2Dirichlet, u1));
         if(ThreeDimensional)
         {
-        R2 = u2 + (h[k]*zeta[k])*r2 + (-h[k])*ddy(p) + (0.5f*h[k]/Re)*(MatMulDim1(dim1Derivative2, u2)+MatMulDim2(dim2Derivative2, u2)+MatMulDim3(dim3Derivative2Neumann, u2));
+        R2 = u2 + (h[k]*zeta[k])*r2 + (-h[k])*Reinterpolate(ddy(p)) + (0.5f*h[k]/Re)*(MatMulDim1(dim1Derivative2, u2)+MatMulDim2(dim2Derivative2, u2)+MatMulDim3(dim3Derivative2Dirichlet, u2));
         }
         R3 = u3 + (h[k]*zeta[k])*r3 + (-h[k])*ddz(p) + (0.5f*h[k]/Re)*(MatMulDim1(dim1Derivative2, u3)+MatMulDim2(dim2Derivative2, u3)+MatMulDim3(dim3Derivative2Dirichlet, u3));
-        RB = b  + (h[k]*zeta[k])*rB                  + (0.5f*h[k]/Pe)*(MatMulDim1(dim1Derivative2, b)+MatMulDim2(dim2Derivative2, b)+MatMulDim3(dim3Derivative2Neumann, b));
+        RB = b  + (h[k]*zeta[k])*rB                  + (0.5f*h[k]/Pe)*(MatMulDim1(dim1Derivative2, b)+MatMulDim2(dim2Derivative2, b)+MatMulDim3(dim3Derivative2Dirichlet, b));
 
         if (evolveBackground)
         {
@@ -1140,245 +1139,243 @@ private:
     {
         // build up right hand sides for the implicit solve in R
 
-        r3 -= Ri*Reinterpolate(b); // buoyancy force
+        r3 -= Ri*b; // buoyancy force
 
         //////// NONLINEAR TERMS ////////
 
         // calculate products at nodes in physical space
 
         // take into account background shear for nonlinear terms
-        U1_tot = U1 + U_;
+        U1_tot = Reinterpolate(U1) + U_;
 
-        InterpolateProduct(U1_tot, U1_tot, boundedTemp);
-        r1 -= ddx(boundedTemp);
+        InterpolateProduct(U1_tot, U1_tot, decayingTemp);
+        r1 -= ddx(decayingTemp);
 
         InterpolateProduct(U1_tot, U3, decayingTemp);
         r3 -= ddx(decayingTemp);
-        r1 -= ddz(decayingTemp);
+        r1 -= Reinterpolate(ddz(decayingTemp));
 
         InterpolateProduct(U3, U3, boundedTemp);
         r3 -= ddz(boundedTemp);
 
         if(ThreeDimensional)
         {
-            InterpolateProduct(U2, U2, boundedTemp);
-            r2 -= ddy(boundedTemp);
+            InterpolateProduct(U2, U2, decayingTemp);
+            r2 -= ddy(decayingTemp);
 
             InterpolateProduct(U2, U3, decayingTemp);
             r3 -= ddy(decayingTemp);
-            r2 -= ddz(decayingTemp);
+            r2 -= Reinterpolate(ddz(decayingTemp));
 
-            InterpolateProduct(U1_tot, U2, boundedTemp);
-            r1 -= ddy(boundedTemp);
-            r2 -= ddx(boundedTemp);
+            InterpolateProduct(U1_tot, U2, decayingTemp);
+            r1 -= ddy(decayingTemp);
+            r2 -= ddx(decayingTemp);
         }
 
         // buoyancy nonlinear terms
-        InterpolateProduct(U1_tot, B, boundedTemp);
-        rB -= ddx(boundedTemp);
+        InterpolateProduct(U1_tot, B, decayingTemp);
+        rB -= ddx(decayingTemp);
 
         if(ThreeDimensional)
         {
-            InterpolateProduct(U2, B, boundedTemp);
-            rB -= ddy(boundedTemp);
+            InterpolateProduct(U2, B, decayingTemp);
+            rB -= ddy(decayingTemp);
         }
 
-        InterpolateProduct(U3, B, decayingTemp);
-        rB -= ddz(decayingTemp);
+        InterpolateProduct(U3, B, boundedTemp);
+        rB -= ddz(boundedTemp);
 
         // advection term from background buoyancy
         ndTemp = U3*dB_dz;
         ndTemp.ToModal(decayingTemp);
-        rB -= Reinterpolate(decayingTemp);
+        rB -= decayingTemp;
     }
 
     void BuildRHSLinear()
     {
-        // build up right hand sides for the implicit solve in R
+        // // build up right hand sides for the implicit solve in R
 
-        r3 -= Ri*Reinterpolate(b); // buoyancy force
+        // r3 -= Ri*Reinterpolate(b); // buoyancy force
 
-        //////// NONLINEAR TERMS ////////
-        InterpolateProduct(U1, U1_tot, boundedTemp);
-        r1 -= 2.0*ddx(boundedTemp);
+        // //////// NONLINEAR TERMS ////////
+        // InterpolateProduct(U1, U1_tot, boundedTemp);
+        // r1 -= 2.0*ddx(boundedTemp);
 
-        InterpolateProduct(U1_tot, U1, U3, U3_tot, decayingTemp);
-        r3 -= ddx(decayingTemp);
-        r1 -= ddz(decayingTemp);
+        // InterpolateProduct(U1_tot, U1, U3, U3_tot, decayingTemp);
+        // r3 -= ddx(decayingTemp);
+        // r1 -= ddz(decayingTemp);
 
-        InterpolateProduct(U3, U3_tot, boundedTemp);
-        r3 -= 2.0*ddz(boundedTemp);
+        // InterpolateProduct(U3, U3_tot, boundedTemp);
+        // r3 -= 2.0*ddz(boundedTemp);
 
-        if(ThreeDimensional)
-        {
-            InterpolateProduct(U2, U2_tot, boundedTemp);
-            r2 -= 2.0*ddy(boundedTemp);
+        // if(ThreeDimensional)
+        // {
+        //     InterpolateProduct(U2, U2_tot, boundedTemp);
+        //     r2 -= 2.0*ddy(boundedTemp);
 
-            InterpolateProduct(U2_tot, U2, U3, U3_tot, decayingTemp);
-            r3 -= ddy(decayingTemp);
-            r2 -= ddz(decayingTemp);
+        //     InterpolateProduct(U2_tot, U2, U3, U3_tot, decayingTemp);
+        //     r3 -= ddy(decayingTemp);
+        //     r2 -= ddz(decayingTemp);
 
-            InterpolateProduct(U2_tot, U2, U1, U1_tot, boundedTemp);
-            r1 -= ddy(boundedTemp);
-            r2 -= ddx(boundedTemp);
-        }
+        //     InterpolateProduct(U2_tot, U2, U1, U1_tot, boundedTemp);
+        //     r1 -= ddy(boundedTemp);
+        //     r2 -= ddx(boundedTemp);
+        // }
 
-        // buoyancy nonlinear terms
-        InterpolateProduct(U1_tot, U1, B, B_tot, boundedTemp);
-        rB -= ddx(boundedTemp);
+        // // buoyancy nonlinear terms
+        // InterpolateProduct(U1_tot, U1, B, B_tot, boundedTemp);
+        // rB -= ddx(boundedTemp);
 
-        if(ThreeDimensional)
-        {
-            InterpolateProduct(U2_tot, U2, B, B_tot, boundedTemp);
-            rB -= ddy(boundedTemp);
-        }
+        // if(ThreeDimensional)
+        // {
+        //     InterpolateProduct(U2_tot, U2, B, B_tot, boundedTemp);
+        //     rB -= ddy(boundedTemp);
+        // }
 
-        InterpolateProduct(B, B_tot, U3_tot, U3, decayingTemp);
-        rB -= ddz(decayingTemp);
+        // InterpolateProduct(B, B_tot, U3_tot, U3, decayingTemp);
+        // rB -= ddz(decayingTemp);
     }
 
     void BuildRHSAdjoint()
     {
-        // build up right hand sides for the implicit solve in R
+        // // build up right hand sides for the implicit solve in R
 
-        // adjoint buoyancy
-        bForcing -= Ri*Reinterpolate(U3);
+        // // adjoint buoyancy
+        // bForcing -= Ri*Reinterpolate(U3);
 
-        //////// NONLINEAR TERMS ////////
-        // advection of adjoint quantities by the direct flow
-        InterpolateProduct(U1, U1_tot, boundedTemp);
-        r1 += ddx(boundedTemp);
-        if(ThreeDimensional)
-        {
-            InterpolateProduct(U1, U2_tot, boundedTemp);
-            r1 += ddy(boundedTemp);
-        }
-        InterpolateProduct(U1, U3_tot, decayingTemp);
-        r1 += ddz(decayingTemp);
+        // //////// NONLINEAR TERMS ////////
+        // // advection of adjoint quantities by the direct flow
+        // InterpolateProduct(U1, U1_tot, boundedTemp);
+        // r1 += ddx(boundedTemp);
+        // if(ThreeDimensional)
+        // {
+        //     InterpolateProduct(U1, U2_tot, boundedTemp);
+        //     r1 += ddy(boundedTemp);
+        // }
+        // InterpolateProduct(U1, U3_tot, decayingTemp);
+        // r1 += ddz(decayingTemp);
 
-        if(ThreeDimensional)
-        {
-            InterpolateProduct(U2, U1_tot, boundedTemp);
-            r2 += ddx(boundedTemp);
-            InterpolateProduct(U2, U2_tot, boundedTemp);
-            r2 += ddy(boundedTemp);
-            InterpolateProduct(U2, U3_tot, decayingTemp);
-            r2 += ddz(decayingTemp);
-        }
+        // if(ThreeDimensional)
+        // {
+        //     InterpolateProduct(U2, U1_tot, boundedTemp);
+        //     r2 += ddx(boundedTemp);
+        //     InterpolateProduct(U2, U2_tot, boundedTemp);
+        //     r2 += ddy(boundedTemp);
+        //     InterpolateProduct(U2, U3_tot, decayingTemp);
+        //     r2 += ddz(decayingTemp);
+        // }
 
-        InterpolateProduct(U3, U1_tot, decayingTemp);
-        r3 += ddx(decayingTemp);
-        if(ThreeDimensional)
-        {
-            InterpolateProduct(U3, U2_tot, decayingTemp);
-            r3 += ddy(decayingTemp);
-        }
-        InterpolateProduct(U3, U3_tot, boundedTemp);
-        r3 += ddz(boundedTemp);
+        // InterpolateProduct(U3, U1_tot, decayingTemp);
+        // r3 += ddx(decayingTemp);
+        // if(ThreeDimensional)
+        // {
+        //     InterpolateProduct(U3, U2_tot, decayingTemp);
+        //     r3 += ddy(decayingTemp);
+        // }
+        // InterpolateProduct(U3, U3_tot, boundedTemp);
+        // r3 += ddz(boundedTemp);
 
-        InterpolateProduct(B, U1_tot, boundedTemp);
-        rB += ddx(boundedTemp);
-        if(ThreeDimensional)
-        {
-            InterpolateProduct(B, U2_tot, boundedTemp);
-            rB += ddy(boundedTemp);
-        }
-        InterpolateProduct(B, U3_tot, decayingTemp);
-        rB += ddz(decayingTemp);
+        // InterpolateProduct(B, U1_tot, boundedTemp);
+        // rB += ddx(boundedTemp);
+        // if(ThreeDimensional)
+        // {
+        //     InterpolateProduct(B, U2_tot, boundedTemp);
+        //     rB += ddy(boundedTemp);
+        // }
+        // InterpolateProduct(B, U3_tot, decayingTemp);
+        // rB += ddz(decayingTemp);
 
-        // extra adjoint nonlinear terms
-        boundedTemp = ddx(u1_tot);
-        boundedTemp.ToNodal(nnTemp);
-        nnTemp2 = nnTemp*U1;
-        if(ThreeDimensional)
-        {
-            boundedTemp = ddx(u2_tot);
-            boundedTemp.ToNodal(nnTemp);
-            nnTemp2 += nnTemp*U2;
-        }
-        decayingTemp = ddx(u3_tot);
-        decayingTemp.ToNodal(ndTemp);
-        u1Forcing -= nnTemp2 + Reinterpolate(ndTemp*U3);
+        // // extra adjoint nonlinear terms
+        // boundedTemp = ddx(u1_tot);
+        // boundedTemp.ToNodal(nnTemp);
+        // nnTemp2 = nnTemp*U1;
+        // if(ThreeDimensional)
+        // {
+        //     boundedTemp = ddx(u2_tot);
+        //     boundedTemp.ToNodal(nnTemp);
+        //     nnTemp2 += nnTemp*U2;
+        // }
+        // decayingTemp = ddx(u3_tot);
+        // decayingTemp.ToNodal(ndTemp);
+        // u1Forcing -= nnTemp2 + Reinterpolate(ndTemp*U3);
 
-        if(ThreeDimensional)
-        {
-            boundedTemp = ddy(u1_tot);
-            boundedTemp.ToNodal(nnTemp);
-            nnTemp2 = nnTemp*U1;
-            boundedTemp = ddy(u2_tot);
-            boundedTemp.ToNodal(nnTemp);
-            nnTemp2 += nnTemp*U2;
-            decayingTemp = ddy(u3_tot);
-            decayingTemp.ToNodal(ndTemp);
-            u2Forcing -= nnTemp2 + Reinterpolate(ndTemp*U3);
-        }
+        // if(ThreeDimensional)
+        // {
+        //     boundedTemp = ddy(u1_tot);
+        //     boundedTemp.ToNodal(nnTemp);
+        //     nnTemp2 = nnTemp*U1;
+        //     boundedTemp = ddy(u2_tot);
+        //     boundedTemp.ToNodal(nnTemp);
+        //     nnTemp2 += nnTemp*U2;
+        //     decayingTemp = ddy(u3_tot);
+        //     decayingTemp.ToNodal(ndTemp);
+        //     u2Forcing -= nnTemp2 + Reinterpolate(ndTemp*U3);
+        // }
 
-        decayingTemp = ddz(u1_tot);
-        decayingTemp.ToNodal(ndTemp);
-        ndTemp2 = ndTemp*Reinterpolate(U1);
-        if(ThreeDimensional)
-        {
-            decayingTemp = ddz(u2_tot);
-            decayingTemp.ToNodal(ndTemp);
-            ndTemp2 += ndTemp*Reinterpolate(U2);
-        }
-        boundedTemp = ddz(u3_tot);
-        boundedTemp.ToNodal(nnTemp);
-        u3Forcing -= ndTemp2 + Reinterpolate(nnTemp)*U3;
+        // decayingTemp = ddz(u1_tot);
+        // decayingTemp.ToNodal(ndTemp);
+        // ndTemp2 = ndTemp*Reinterpolate(U1);
+        // if(ThreeDimensional)
+        // {
+        //     decayingTemp = ddz(u2_tot);
+        //     decayingTemp.ToNodal(ndTemp);
+        //     ndTemp2 += ndTemp*Reinterpolate(U2);
+        // }
+        // boundedTemp = ddz(u3_tot);
+        // boundedTemp.ToNodal(nnTemp);
+        // u3Forcing -= ndTemp2 + Reinterpolate(nnTemp)*U3;
 
 
-        boundedTemp = ddx(b_tot);
-        boundedTemp.ToNodal(nnTemp);
-        u1Forcing -= nnTemp*B;
+        // boundedTemp = ddx(b_tot);
+        // boundedTemp.ToNodal(nnTemp);
+        // u1Forcing -= nnTemp*B;
 
-        if(ThreeDimensional)
-        {
-            boundedTemp = ddy(b_tot);
-            boundedTemp.ToNodal(nnTemp);
-            u2Forcing -= nnTemp*B;
-        }
+        // if(ThreeDimensional)
+        // {
+        //     boundedTemp = ddy(b_tot);
+        //     boundedTemp.ToNodal(nnTemp);
+        //     u2Forcing -= nnTemp*B;
+        // }
 
-        decayingTemp = ddz(b_tot);
-        decayingTemp.ToNodal(ndTemp);
-        u3Forcing -= ndTemp*Reinterpolate(B);
+        // decayingTemp = ddz(b_tot);
+        // decayingTemp.ToNodal(ndTemp);
+        // u3Forcing -= ndTemp*Reinterpolate(B);
 
-        // Now include all the forcing terms
-        u1Forcing.ToModal(boundedTemp);
-        r1 += boundedTemp;
-        if (ThreeDimensional)
-        {
-            u2Forcing.ToModal(boundedTemp);
-            r2 += boundedTemp;
-        }
-        u3Forcing.ToModal(decayingTemp);
-        r3 += decayingTemp;
-        bForcing.ToModal(boundedTemp);
-        rB += boundedTemp;
+        // // Now include all the forcing terms
+        // u1Forcing.ToModal(boundedTemp);
+        // r1 += boundedTemp;
+        // if (ThreeDimensional)
+        // {
+        //     u2Forcing.ToModal(boundedTemp);
+        //     r2 += boundedTemp;
+        // }
+        // u3Forcing.ToModal(decayingTemp);
+        // r3 += decayingTemp;
+        // bForcing.ToModal(boundedTemp);
+        // rB += boundedTemp;
     }
 
 public:
     // these are the actual variables we care about
-    NeumannModal u1, u2, b, p;
-    DirichletModal u3;
+    NeumannModal p;
+    DirichletModal u1, u2, b, u3;
 private:
     // background flow
     Neumann1D U_, B_;
     Dirichlet1D dB_dz;
 
     // direct flow (used for adjoint evolution)
-    NeumannModal u1_tot, u2_tot, b_tot;
-    DirichletModal u3_tot;
+    NeumannModal u1_tot, b_tot;
+    DirichletModal u2_tot, u3_tot;
 
     // Nodal versions of variables
-    mutable NeumannNodal U1, U2, B;
-    mutable DirichletNodal U3;
+    mutable DirichletNodal U1, U2, B, U3;
 
 
     // extra variables required for adjoint forcing
     stratifloat J, K;
 
-    NeumannNodal u1Forcing, u2Forcing;
-    DirichletNodal u3Forcing, bForcing;
+    DirichletNodal u1Forcing, u2Forcing, u3Forcing, bForcing;
 
     // parameters for the scheme
     const int s = 3;
@@ -1387,16 +1384,14 @@ private:
     const stratifloat zeta[3] = {0, -17.0f/8.0f, -5.0f/4.0f};
 
     // these are intermediate variables used in the computation, preallocated for efficiency
-    NeumannModal R1, R2, RB;
-    DirichletModal R3;
+    DirichletModal R1, R2, RB, R3;
 
     Neumann1D RU_, RB_;
 
-    NeumannModal r1, r2, rB;
-    DirichletModal r3;
+    DirichletModal r1, r2, rB, r3;
 
-    mutable NeumannNodal U1_tot, U2_tot, B_tot;
-    mutable DirichletNodal U3_tot;
+    mutable NeumannNodal U1_tot, B_tot;
+    mutable DirichletNodal U2_tot, U3_tot;
 
     mutable NeumannNodal nnTemp, nnTemp2;
     mutable DirichletNodal ndTemp, ndTemp2;
@@ -1419,13 +1414,12 @@ private:
     std::vector<SparseLU<SparseMatrix<stratifloat>>> implicitSolveVelocityNeumann[3];
     std::vector<SparseLU<SparseMatrix<stratifloat>>> implicitSolveVelocityDirichlet[3];
     std::vector<SparseLU<SparseMatrix<stratifloat>>> implicitSolveBuoyancyNeumann[3];
+    std::vector<SparseLU<SparseMatrix<stratifloat>>> implicitSolveBuoyancyDirichlet[3];
     std::vector<SparseLU<SparseMatrix<stratifloat>>> solveLaplacian;
 
     // for flow saving/loading
     std::map<stratifloat, std::string> filenames;
     std::map<stratifloat, std::string>::iterator fileAbove;
-    std::map<stratifloat, State> snapshots;
-    std::map<stratifloat, State>::iterator snapshotAbove;
 
     const std::string snapshotdir = "snapshots/";
     std::string imageDirectory;

@@ -6,10 +6,10 @@
 class StateVector
 {
 public:
-    NeumannModal u1;
-    NeumannModal u2;
+    DirichletModal u1;
+    DirichletModal u2;
     DirichletModal u3;
-    NeumannModal b;
+    DirichletModal b;
     NeumannModal p;
 
     void FullEvolve(stratifloat T, StateVector& result, bool snapshot = false) const;
@@ -173,9 +173,9 @@ public:
     void EnforceBCs()
     {
         u3.ZeroEnds();
-        u1.NeumannEnds();
-        u2.NeumannEnds();
-        b.NeumannEnds();
+        u1.ZeroEnds();
+        u2.ZeroEnds();
+        b.ZeroEnds();
     }
 
     void AddBackground()
@@ -194,8 +194,8 @@ public:
         u1.ToNodal(U1);
         b.ToNodal(B);
 
-        U1 += U_;
-        B += B_;
+        U1 += Reinterpolate(U_);
+        B += Reinterpolate(B_);
 
         U1.ToModal(u1);
         B.ToModal(b);
