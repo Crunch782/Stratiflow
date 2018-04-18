@@ -12,9 +12,11 @@ public:
     DirichletModal b;
     NeumannModal p;
 
-    void FullEvolve(stratifloat T, StateVector& result, bool snapshot = false) const;
+    void FullEvolve(stratifloat T, StateVector& result, bool snapshot = false, bool screenshot = true) const;
 
     void LinearEvolve(stratifloat T, StateVector& result) const;
+
+    void LinearEvolve(stratifloat T, const StateVector& about, const StateVector& aboutResult, StateVector& result) const;
 
     void LinearEvolveFixed(stratifloat T, const StateVector& about, StateVector& result) const;
 

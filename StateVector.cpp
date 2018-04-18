@@ -1,6 +1,6 @@
 #include "StateVector.h"
 
-void StateVector::FullEvolve(stratifloat T, StateVector& result, bool snapshot) const
+void StateVector::FullEvolve(stratifloat T, StateVector& result, bool snapshot, bool screenshot) const
 {
     CopyToSolver();
 
@@ -19,7 +19,11 @@ void StateVector::FullEvolve(stratifloat T, StateVector& result, bool snapshot) 
     static int runnum = 0;
     runnum++;
     solver.PrepareRun(std::string("images-")+std::to_string(runnum)+"/");
-    solver.PlotAll(std::to_string(t)+".png", true);
+
+    if (screenshot)
+    {
+        solver.PlotAll(std::to_string(t)+".png", true);
+    }
 
     solver.deltaT = 0.01;
     solver.UpdateForTimestep();
@@ -41,7 +45,11 @@ void StateVector::FullEvolve(stratifloat T, StateVector& result, bool snapshot) 
         {
             stratifloat cfl = solver.CFL();
             std::cout << step << " " << t << std::endl;
-            solver.PlotAll(std::to_string(t)+".png", true);
+
+            if (screenshot)
+            {
+                solver.PlotAll(std::to_string(t)+".png", true);
+            }
         }
 
         if (snapshot)
@@ -56,10 +64,24 @@ void StateVector::FullEvolve(stratifloat T, StateVector& result, bool snapshot) 
             break;
         }
     }
-
-    solver.PlotAll(std::to_string(t)+".png", true);
-
+    if (screenshot)
+    {
+        solver.PlotAll(std::to_string(t)+".png", true);
+    }
     CopyFromSolver(result);
+}
+
+void StateVector::LinearEvolve(stratifloat T, const StateVector& about, const StateVector& aboutResult, StateVector& result) const
+{
+    stratifloat eps = 0.000001;
+
+    result = about;
+    result.MulAdd(eps, *this);
+
+    result.FullEvolve(T, result, false, false);
+
+    result -= aboutResult;
+    result *= 1/eps;
 }
 
 // void StateVector::LinearEvolveFixed(stratifloat T, const StateVector& about, StateVector& result) const

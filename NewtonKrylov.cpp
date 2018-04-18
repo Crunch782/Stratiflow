@@ -16,8 +16,7 @@ public:
 
         StateVector xPrevious;
 
-        stratifloat Delta = 0.01;
-
+        stratifloat Delta = 0.1;
         int step = 0;
         while(true)
         {
@@ -27,7 +26,11 @@ public:
 
             // first nonlinearly evolve current state
             StateVector rhs; // = G-x
-            x.FullEvolve(T, rhs, true);
+            x.FullEvolve(T, rhs, false);
+
+            linearAboutStart = x;
+            linearAboutEnd = rhs;
+
             rhs -= x;
 
             stratifloat residual = rhs.Norm();
@@ -91,7 +94,7 @@ private:
 
             // q_k = A q_k-1
             StateVector Gq;
-            q[k-1].LinearEvolve(T, Gq);
+            q[k-1].LinearEvolve(T, linearAboutStart, linearAboutEnd, Gq);
             q[k] = q[k-1];
             q[k] -= Gq;
 
@@ -167,6 +170,9 @@ private:
     }
 
     stratifloat T = 5; // time interval for integration
+
+    StateVector linearAboutStart;
+    StateVector linearAboutEnd;
 };
 
 int main(int argc, char *argv[])
