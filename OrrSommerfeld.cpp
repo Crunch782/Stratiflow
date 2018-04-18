@@ -176,7 +176,7 @@ stratifloat LargestGrowth(stratifloat k,
 
     // find maximum growth
 
-    stratifloat imagcutoff = 0.01;
+    stratifloat imagcutoff = 0.1;
 
     stratifloat jmax = -1;
     stratifloat largest;
