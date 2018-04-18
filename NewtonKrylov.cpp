@@ -177,15 +177,32 @@ private:
 
 int main(int argc, char *argv[])
 {
-    Ri = std::stof(argv[2]);
+    if (argc != 6)
+    {
+        std::cout << "Usage: 1.fields 2.fields Ri_1 Ri_2 Ri_new" << std::endl;
+        return 1;
+    }
+
+    Ri = std::stof(argv[5]);
 
     DumpParameters();
 
     NewtonKrylov solver;
 
-    StateVector stationaryPoint;
+    StateVector field1;
+    StateVector field2;
+    field1.LoadFromFile(argv[1]);
+    field2.LoadFromFile(argv[2]);
 
-    stationaryPoint.LoadFromFile(argv[1]);
+    stratifloat Ri_1 = std::stof(argv[3]);
+    stratifloat Ri_2 = std::stof(argv[4]);
 
-    solver.Run(stationaryPoint);
+    StateVector derivative = field2;
+    derivative -= field1;
+    derivative *= 1/(Ri_2 - Ri_1);
+
+    StateVector guess = field2;
+    guess.MulAdd(Ri-Ri_2, derivative);
+
+    solver.Run(guess);
 }
