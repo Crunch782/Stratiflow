@@ -18,8 +18,6 @@ public:
 
     void LinearEvolve(stratifloat T, const StateVector& about, const StateVector& aboutResult, StateVector& result) const;
 
-    void LinearEvolveFixed(stratifloat T, const StateVector& about, StateVector& result) const;
-
     void AdjointEvolve(stratifloat T, StateVector& result) const;
 
     void CalcPressure()
