@@ -18,7 +18,7 @@ void StateVector::FullEvolve(stratifloat T, StateVector& result, bool snapshot, 
 
     static int runnum = 0;
     runnum++;
-    solver.PrepareRun(std::string("images-")+std::to_string(runnum)+"/");
+    solver.PrepareRun(std::string("images-")+std::to_string(runnum)+"/", screenshot);
 
     if (screenshot)
     {

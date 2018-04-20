@@ -197,12 +197,16 @@ int main(int argc, char *argv[])
     stratifloat Ri_1 = std::stof(argv[3]);
     stratifloat Ri_2 = std::stof(argv[4]);
 
-    StateVector derivative = field2;
-    derivative -= field1;
-    derivative *= 1/(Ri_2 - Ri_1);
-
     StateVector guess = field2;
-    guess.MulAdd(Ri-Ri_2, derivative);
+
+    if (Ri_1 != Ri_2)
+    {
+        StateVector derivative = field2;
+        derivative -= field1;
+        derivative *= 1/(Ri_2 - Ri_1);
+
+        guess.MulAdd(Ri-Ri_2, derivative);
+    }
 
     solver.Run(guess);
 }
