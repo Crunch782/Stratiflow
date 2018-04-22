@@ -7,6 +7,7 @@
 #include "Integration.h"
 #include "Graph.h"
 #include "OSUtils.h"
+#include "Tridiagonal.h"
 
 #include <iostream>
 #include <fstream>
@@ -39,10 +40,10 @@ public:
 public:
     IMEXRK()
     : solveLaplacian(M1*N2)
-    , implicitSolveVelocityNeumann{std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2)}
-    , implicitSolveVelocityDirichlet{std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2)}
-    , implicitSolveBuoyancyNeumann{std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2)}
-    , implicitSolveBuoyancyDirichlet{std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2), std::vector<SparseLU<SparseMatrix<stratifloat>>>(M1*N2)}
+    , implicitSolveVelocityNeumann{std::vector<Tridiagonal<stratifloat, N3>>(M1*N2), std::vector<Tridiagonal<stratifloat, N3>>(M1*N2), std::vector<Tridiagonal<stratifloat, N3>>(M1*N2)}
+    , implicitSolveVelocityDirichlet{std::vector<Tridiagonal<stratifloat, N3>>(M1*N2), std::vector<Tridiagonal<stratifloat, N3>>(M1*N2), std::vector<Tridiagonal<stratifloat, N3>>(M1*N2)}
+    , implicitSolveBuoyancyNeumann{std::vector<Tridiagonal<stratifloat, N3>>(M1*N2), std::vector<Tridiagonal<stratifloat, N3>>(M1*N2), std::vector<Tridiagonal<stratifloat, N3>>(M1*N2)}
+    , implicitSolveBuoyancyDirichlet{std::vector<Tridiagonal<stratifloat, N3>>(M1*N2), std::vector<Tridiagonal<stratifloat, N3>>(M1*N2), std::vector<Tridiagonal<stratifloat, N3>>(M1*N2)}
     {
         assert(ThreeDimensional || N2 == 1);
 
@@ -54,7 +55,6 @@ public:
         dim3Derivative2Dirichlet = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Dirichlet);
 
         MatrixX laplacian;
-        SparseMatrix<stratifloat> solve;
 
         // we solve each vetical line separately, so N1*N2 total solves
         for (int j1=0; j1<M1; j1++)
@@ -76,10 +76,7 @@ public:
                     laplacian(0,0) = 1;
                 }
 
-                solve = laplacian.sparseView();
-                solve.makeCompressed();
-
-                solveLaplacian[j1*N2+j2].compute(solve);
+                solveLaplacian[j1*N2+j2].compute(laplacian);
             }
         }
 
@@ -779,7 +776,7 @@ public:
         for (int j1=0; j1<M1; j1++)
         {
             MatrixX laplacian;
-            SparseMatrix<stratifloat> solve;
+            MatrixX solve;
 
             for (int j2=0; j2<N2; j2++)
             {
@@ -789,32 +786,26 @@ public:
                     laplacian += dim1Derivative2.diagonal()(j1)*MatrixX::Identity(N3, N3);
                     laplacian += dim2Derivative2.diagonal()(j2)*MatrixX::Identity(N3, N3);
 
-                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Re).sparseView();
+                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Re);
                     Neumannify(solve);
-                    solve.makeCompressed();
                     implicitSolveVelocityNeumann[k][j1*N2+j2].compute(solve);
 
-                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Pe).sparseView();
+                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Pe);
                     Neumannify(solve);
-                    solve.makeCompressed();
                     implicitSolveBuoyancyNeumann[k][j1*N2+j2].compute(solve);
-
 
 
                     laplacian = dim3Derivative2Dirichlet;
                     laplacian += dim1Derivative2.diagonal()(j1)*MatrixX::Identity(N3, N3);
                     laplacian += dim2Derivative2.diagonal()(j2)*MatrixX::Identity(N3, N3);
 
-                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Re).sparseView();
+                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Re);
                     Dirichlify(solve);
-                    solve.makeCompressed();
                     implicitSolveVelocityDirichlet[k][j1*N2+j2].compute(solve);
 
-                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Pe).sparseView();
+                    solve = (MatrixX::Identity(N3, N3)-0.5*h[k]*laplacian/Pe);
                     Dirichlify(solve);
-                    solve.makeCompressed();
                     implicitSolveBuoyancyDirichlet[k][j1*N2+j2].compute(solve);
-
                 }
 
             }
@@ -1414,11 +1405,12 @@ private:
     MatrixX dim3Derivative2Neumann;
     MatrixX dim3Derivative2Dirichlet;
 
-    std::vector<SparseLU<SparseMatrix<stratifloat>>> implicitSolveVelocityNeumann[3];
-    std::vector<SparseLU<SparseMatrix<stratifloat>>> implicitSolveVelocityDirichlet[3];
-    std::vector<SparseLU<SparseMatrix<stratifloat>>> implicitSolveBuoyancyNeumann[3];
-    std::vector<SparseLU<SparseMatrix<stratifloat>>> implicitSolveBuoyancyDirichlet[3];
-    std::vector<SparseLU<SparseMatrix<stratifloat>>> solveLaplacian;
+    std::vector<Tridiagonal<stratifloat, N3>> implicitSolveVelocityNeumann[3];
+    std::vector<Tridiagonal<stratifloat, N3>> implicitSolveVelocityDirichlet[3];
+    std::vector<Tridiagonal<stratifloat, N3>> implicitSolveBuoyancyNeumann[3];
+    std::vector<Tridiagonal<stratifloat, N3>> implicitSolveBuoyancyDirichlet[3];
+    std::vector<Tridiagonal<stratifloat, N3>> solveLaplacian;
+
 
     // for flow saving/loading
     std::map<stratifloat, std::string> filenames;
