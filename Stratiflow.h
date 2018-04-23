@@ -5,46 +5,46 @@
 
 constexpr int M1 = N1/2 + 1;
 
-class NeumannNodal : public NodalField<N1,N2,N3>
+class NormalNodal : public NodalField<N1,N2,N3>
 {
 public:
-    NeumannNodal() : NodalField(BoundaryCondition::Neumann) {}
+    NormalNodal() : NodalField(GridType::Normal) {}
     using NodalField::operator=;
 };
 
-class NeumannModal : public ModalField<N1,N2,N3>
+class NormalModal : public ModalField<N1,N2,N3>
 {
 public:
-    NeumannModal() : ModalField(BoundaryCondition::Neumann) {}
+    NormalModal() : ModalField(GridType::Normal) {}
     using ModalField::operator=;
 };
 
-class DirichletNodal : public NodalField<N1,N2,N3>
+class StaggeredNodal : public NodalField<N1,N2,N3>
 {
 public:
-    DirichletNodal() : NodalField(BoundaryCondition::Dirichlet) {}
+    StaggeredNodal() : NodalField(GridType::Staggered) {}
     using NodalField::operator=;
 
 };
 
-class DirichletModal : public ModalField<N1,N2,N3>
+class StaggeredModal : public ModalField<N1,N2,N3>
 {
 public:
-    DirichletModal() : ModalField(BoundaryCondition::Dirichlet) {}
+    StaggeredModal() : ModalField(GridType::Staggered) {}
     using ModalField::operator=;
 };
 
-class Neumann1D : public Nodal1D<N1,N2,N3>
+class Normal1D : public Nodal1D<N1,N2,N3>
 {
 public:
-    Neumann1D() : Nodal1D(BoundaryCondition::Neumann) {}
+    Normal1D() : Nodal1D(GridType::Normal) {}
     using Nodal1D::operator=;
 };
 
-class Dirichlet1D : public Nodal1D<N1,N2,N3>
+class Staggered1D : public Nodal1D<N1,N2,N3>
 {
 public:
-    Dirichlet1D() : Nodal1D(BoundaryCondition::Dirichlet) {}
+    Staggered1D() : Nodal1D(GridType::Staggered) {}
     using Nodal1D::operator=;
 };
 
@@ -67,96 +67,96 @@ Dim2MatMul<T, complex, complex, M1, N2, N3> ddy(const StackContainer<T, complex,
 template<typename A, typename T, int K1, int K2, int K3>
 Dim3MatMul<A, stratifloat, T, K1, K2, K3> ddz(const StackContainer<A, T, K1, K2, K3>& f)
 {
-    if (f.BC() == BoundaryCondition::Neumann)
+    if (f.Grid() == GridType::Normal)
     {
-        static MatrixX dim3Derivative = VerticalDerivativeMatrix(L3, N3, f.BC());
-        return Dim3MatMul<A, stratifloat, T, K1, K2, K3>(dim3Derivative, f, BoundaryCondition::Dirichlet);
+        static MatrixX dim3Derivative = VerticalDerivativeMatrix(L3, N3, f.Grid());
+        return Dim3MatMul<A, stratifloat, T, K1, K2, K3>(dim3Derivative, f, GridType::Staggered);
     }
     else
     {
-        static MatrixX dim3Derivative = VerticalDerivativeMatrix(L3, N3, f.BC());
-        return Dim3MatMul<A, stratifloat, T, K1, K2, K3>(dim3Derivative, f, BoundaryCondition::Neumann);
+        static MatrixX dim3Derivative = VerticalDerivativeMatrix(L3, N3, f.Grid());
+        return Dim3MatMul<A, stratifloat, T, K1, K2, K3>(dim3Derivative, f, GridType::Normal);
     }
 }
 
 template<typename A, typename T, int K1, int K2, int K3>
 Dim3MatMul<A, stratifloat, T, K1, K2, K3> Reinterpolate(const StackContainer<A, T, K1, K2, K3>& f)
 {
-    if (f.BC() == BoundaryCondition::Neumann)
+    if (f.Grid() == GridType::Normal)
     {
-        static MatrixX reint = VerticalReinterpolationMatrix(L3, N3, f.BC());
-        return Dim3MatMul<A, stratifloat, T, K1, K2, K3>(reint, f, BoundaryCondition::Dirichlet);
+        static MatrixX reint = VerticalReinterpolationMatrix(L3, N3, f.Grid());
+        return Dim3MatMul<A, stratifloat, T, K1, K2, K3>(reint, f, GridType::Staggered);
     }
     else
     {
-        static MatrixX reint = VerticalReinterpolationMatrix(L3, N3, f.BC());
-        return Dim3MatMul<A, stratifloat, T, K1, K2, K3>(reint, f, BoundaryCondition::Neumann);
+        static MatrixX reint = VerticalReinterpolationMatrix(L3, N3, f.Grid());
+        return Dim3MatMul<A, stratifloat, T, K1, K2, K3>(reint, f, GridType::Normal);
     }
 }
 
 namespace
 {
-void InterpolateProduct(const NeumannNodal& A, const NeumannNodal& B, NeumannModal& to)
+void InterpolateProduct(const NormalNodal& A, const NormalNodal& B, NormalModal& to)
 {
-    static NeumannNodal prod;
+    static NormalNodal prod;
     prod = A*B;
     prod.ToModal(to);
 }
-void InterpolateProduct(const NeumannNodal& A, const NeumannNodal& B, DirichletModal& to)
+void InterpolateProduct(const NormalNodal& A, const NormalNodal& B, StaggeredModal& to)
 {
-    static DirichletNodal prod;
+    static StaggeredNodal prod;
     prod = Reinterpolate(A*B);
     prod.ToModal(to);
 }
-void InterpolateProduct(const NeumannNodal& A, const DirichletNodal& B, DirichletModal& to)
+void InterpolateProduct(const NormalNodal& A, const StaggeredNodal& B, StaggeredModal& to)
 {
-    static DirichletNodal prod;
+    static StaggeredNodal prod;
     prod = Reinterpolate(A)*B;
     prod.ToModal(to);
 }
-void InterpolateProduct(const DirichletNodal& B, const NeumannNodal& A, DirichletModal& to)
+void InterpolateProduct(const StaggeredNodal& B, const NormalNodal& A, StaggeredModal& to)
 {
-    static DirichletNodal prod;
+    static StaggeredNodal prod;
     prod = Reinterpolate(A)*B;
     prod.ToModal(to);
 }
-void InterpolateProduct(const NeumannNodal& B, const DirichletNodal& A, NeumannModal& to)
+void InterpolateProduct(const NormalNodal& B, const StaggeredNodal& A, NormalModal& to)
 {
-    static NeumannNodal prod;
+    static NormalNodal prod;
     prod = Reinterpolate(A)*B;
     prod.ToModal(to);
 }
-void InterpolateProduct(const DirichletNodal& A, const NeumannNodal& B, NeumannModal& to)
+void InterpolateProduct(const StaggeredNodal& A, const NormalNodal& B, NormalModal& to)
 {
-    static NeumannNodal prod;
+    static NormalNodal prod;
     prod = Reinterpolate(A)*B;
     prod.ToModal(to);
 }
-void InterpolateProduct(const DirichletNodal& A, const DirichletNodal& B, NeumannModal& to)
+void InterpolateProduct(const StaggeredNodal& A, const StaggeredNodal& B, NormalModal& to)
 {
-    static NeumannNodal prod;
+    static NormalNodal prod;
     prod = Reinterpolate(A*B);
     prod.ToModal(to);
 }
-void InterpolateProduct(const DirichletNodal& A, const DirichletNodal& B, DirichletModal& to)
+void InterpolateProduct(const StaggeredNodal& A, const StaggeredNodal& B, StaggeredModal& to)
 {
-    static DirichletNodal prod;
+    static StaggeredNodal prod;
     prod = A*B;
     prod.ToModal(to);
 }
-void InterpolateProduct(const NeumannNodal& A1, const NeumannNodal& A2,
-                        const NeumannNodal& B1, const NeumannNodal& B2,
-                        NeumannModal& to)
+void InterpolateProduct(const NormalNodal& A1, const NormalNodal& A2,
+                        const NormalNodal& B1, const NormalNodal& B2,
+                        NormalModal& to)
 {
-    static NeumannNodal prod;
+    static NormalNodal prod;
     prod = A1*B1 + A2*B2;
     prod.ToModal(to);
 }
-void InterpolateProduct(const NeumannNodal& A1, const NeumannNodal& A2,
-                        const DirichletNodal& B1, const DirichletNodal& B2,
-                        DirichletModal& to)
+void InterpolateProduct(const NormalNodal& A1, const NormalNodal& A2,
+                        const StaggeredNodal& B1, const StaggeredNodal& B2,
+                        StaggeredModal& to)
 {
-    static DirichletNodal prod;
+    static StaggeredNodal prod;
     prod = Reinterpolate(A1)*B1 + Reinterpolate(A2)*B2;
     prod.ToModal(to);
 }

@@ -6,18 +6,18 @@
 
 MatrixXc OrrSommerfeldLHS(stratifloat k)
 {
-    Neumann1D U;
-    Neumann1D B;
+    Normal1D U;
+    Normal1D B;
     U.SetValue(InitialU, L3);
     B.SetValue(InitialB, L3);
 
-    Neumann1D Upp;
+    Normal1D Upp;
     Upp = ddz(ddz(U));
-    Dirichlet1D Bp;
+    Staggered1D Bp;
     Bp = ddz(B);
 
-    auto D2w = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Dirichlet);
-    auto D2b = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Neumann);
+    auto D2w = VerticalSecondDerivativeMatrix(L3, N3, GridType::Staggered);
+    auto D2b = VerticalSecondDerivativeMatrix(L3, N3, GridType::Normal);
     auto I = MatrixX::Identity(N3, N3);
 
     MatrixX Um = U.Get().matrix().asDiagonal();
@@ -46,18 +46,18 @@ MatrixXc OrrSommerfeldLHS(stratifloat k)
 
 MatrixXc OrrSommerfeldRHS(stratifloat k)
 {
-    Neumann1D U;
-    Neumann1D B;
+    Normal1D U;
+    Normal1D B;
     U.SetValue(InitialU, L3);
     B.SetValue(InitialB, L3);
 
-    Neumann1D Upp;
+    Normal1D Upp;
     Upp = ddz(ddz(U));
-    Dirichlet1D Bp;
+    Staggered1D Bp;
     Bp = ddz(B);
 
-    auto D2w = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Dirichlet);
-    auto D2b = VerticalSecondDerivativeMatrix(L3, N3, BoundaryCondition::Neumann);
+    auto D2w = VerticalSecondDerivativeMatrix(L3, N3, GridType::Staggered);
+    auto D2b = VerticalSecondDerivativeMatrix(L3, N3, GridType::Normal);
     auto I = MatrixX::Identity(N3, N3);
 
     MatrixX Um = U.Get().matrix().asDiagonal();
@@ -104,7 +104,7 @@ ArrayXc CalculateEigenvalues(stratifloat k, MatrixXc *w_eigen, MatrixXc *b_eigen
     {
         w_eigen->block(1,0,N3-3,N3-3) = solver.eigenvectors().block(0,0,N3-3,N3-3);
 
-        // dirichlet BC
+        // dirichlet bc
         w_eigen->row(0).setZero();
         w_eigen->row(N3-2).setZero();
         w_eigen->row(N3-1).setZero();
@@ -114,7 +114,7 @@ ArrayXc CalculateEigenvalues(stratifloat k, MatrixXc *w_eigen, MatrixXc *b_eigen
     {
         b_eigen->block(1,0,N3-2,N3-2) = solver.eigenvectors().block(N3-3,0,N3-2,N3-2);
 
-        // Neumann BC
+        // Neumann bc
         b_eigen->row(0) = b_eigen->row(1);
         b_eigen->row(N3-1) = b_eigen->row(N3-2);
     }
@@ -193,17 +193,17 @@ stratifloat LargestGrowth(stratifloat k,
     return largest;
 }
 
-void EigenModes(stratifloat k, NeumannModal& u1, NeumannModal& u2, DirichletModal& u3, NeumannModal& b)
+void EigenModes(stratifloat k, NormalModal& u1, NormalModal& u2, StaggeredModal& u3, NormalModal& b)
 {
     // find the vertical profile of eigenmodes
-    Field1D<complex, N1, N2, N3> w_hat(BoundaryCondition::Dirichlet);
-    Field1D<complex, N1, N2, N3> b_hat(BoundaryCondition::Neumann);
+    Field1D<complex, N1, N2, N3> w_hat(GridType::Staggered);
+    Field1D<complex, N1, N2, N3> b_hat(GridType::Normal);
 
     LargestGrowth(k, &w_hat, &b_hat);
 
     // multiply out the modes
-    DirichletNodal W;
-    NeumannNodal B;
+    StaggeredNodal W;
+    NormalNodal B;
 
     auto x = FourierPoints(L1, N1);
 

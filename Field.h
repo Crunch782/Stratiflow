@@ -26,16 +26,16 @@ class StackContainer
 {
 public:
     virtual A stack(int n1, int n2) const = 0;
-    virtual BoundaryCondition BC() const = 0;
-    BoundaryCondition OtherBC() const
+    virtual GridType Grid() const = 0;
+    GridType OtherGrid() const
     {
-        if (BC() == BoundaryCondition::Neumann)
+        if (Grid() == GridType::Normal)
         {
-            return BoundaryCondition::Dirichlet;
+            return GridType::Staggered;
         }
         else
         {
-            return BoundaryCondition::Neumann;
+            return GridType::Normal;
         }
     }
 };
@@ -56,9 +56,9 @@ public:
         return scalar*rhs->stack(n1, n2);
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return rhs->BC();
+        return rhs->Grid();
     }
 private:
     const StackContainer<A, T, N1, N2, N3>* rhs;
@@ -73,7 +73,7 @@ public:
     : lhs(lhs)
     , rhs(rhs)
     {
-        assert(lhs->BC() == rhs->BC());
+        assert(lhs->Grid() == rhs->Grid());
     }
     virtual
         CwiseBinaryOp<internal::scalar_sum_op<T, T>, const A, const B>
@@ -82,9 +82,9 @@ public:
         return lhs->stack(n1, n2) + rhs->stack(n1, n2);
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return rhs->BC();
+        return rhs->Grid();
     }
 private:
     const StackContainer<A, T, N1, N2, N3>* lhs;
@@ -99,7 +99,7 @@ public:
     : lhs(lhs)
     , rhs(rhs)
     {
-        assert(lhs->BC() == rhs->BC());
+        assert(lhs->Grid() == rhs->Grid());
     }
     virtual
         CwiseBinaryOp<internal::scalar_product_op<T, T>, const A, const B>
@@ -108,9 +108,9 @@ public:
         return lhs->stack(n1, n2) * rhs->stack(n1, n2);
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return rhs->BC();
+        return rhs->Grid();
     }
 private:
     const StackContainer<A, T, N1, N2, N3>* lhs;
@@ -133,9 +133,9 @@ public:
         return matrix.diagonal()(n1)*field.stack(n1, n2);
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return field.BC();
+        return field.Grid();
     }
 private:
     const StackContainer<A, T2, N1, N2, N3>& field;
@@ -158,9 +158,9 @@ public:
         return matrix.diagonal()(n2)*field.stack(n1, n2);
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return field.BC();
+        return field.Grid();
     }
 private:
     const StackContainer<A, T2, N1, N2, N3>& field;
@@ -174,13 +174,13 @@ public:
     Dim3MatMul(const Matrix<T1, -1, -1>& matrix, const StackContainer<A, T2, N1, N2, N3>& field)
     : matrix(matrix)
     , field(field)
-    , resultingBC(field.BC())
+    , resultingGrid(field.Grid())
     {}
 
-    Dim3MatMul(const Matrix<T1, -1, -1>& matrix, const StackContainer<A, T2, N1, N2, N3>& field, BoundaryCondition resultBC)
+    Dim3MatMul(const Matrix<T1, -1, -1>& matrix, const StackContainer<A, T2, N1, N2, N3>& field, GridType resultGrid)
     : matrix(matrix)
     , field(field)
-    , resultingBC(resultBC)
+    , resultingGrid(resultGrid)
     {}
 
     virtual
@@ -190,14 +190,14 @@ public:
         return (matrix*field.stack(n1, n2).matrix()).array();
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return resultingBC;
+        return resultingGrid;
     }
 private:
     const StackContainer<A, T2, N1, N2, N3>& field;
     const Matrix<T1, -1, -1>& matrix;
-    BoundaryCondition resultingBC;
+    GridType resultingGrid;
 };
 
 template<typename A, typename T1, typename T2, int N1, int N2, int N3>
@@ -207,13 +207,13 @@ public:
     MatMul(const std::vector<Matrix<T1, -1, -1>>& matrices, const StackContainer<A, T2, N1, N2, N3>& field)
     : matrices(matrices)
     , field(field)
-    , resultingBC(field.BC())
+    , resultingGrid(field.Grid())
     {}
 
-    MatMul(const std::vector<Matrix<T1, -1, -1>>& matrices, const StackContainer<A, T2, N1, N2, N3>& field, BoundaryCondition resultBC)
+    MatMul(const std::vector<Matrix<T1, -1, -1>>& matrices, const StackContainer<A, T2, N1, N2, N3>& field, GridType resultGrid)
     : matrices(matrices)
     , field(field)
-    , resultingBC(resultBC)
+    , resultingGrid(resultGrid)
     {}
 
     virtual
@@ -223,42 +223,42 @@ public:
         return (matrices[n1*N2+n2]*field.stack(n1, n2).matrix()).array();
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return resultingBC;
+        return resultingGrid;
     }
 private:
     const StackContainer<A, T2, N1, N2, N3>& field;
     const std::vector<Matrix<T1, -1, -1>>& matrices;
-    BoundaryCondition resultingBC;
+    GridType resultingGrid;
 };
 
 template<typename T, int N1, int N2, int N3>
 class Field : public StackContainer<Map<const Array<T, -1, 1>, Aligned16>,T,N1,N2,N3>
 {
 public:
-    Field(BoundaryCondition bc)
+    Field(GridType grid)
     : _data(N1*N2*N3, 0)
-    , _bc(bc)
+    , _grid(grid)
     {
     }
 
     Field(const Field<T, N1, N2, N3>& other)
     : _data(other._data)
     {
-        assert(other.BC() == BC());
+        assert(other.Grid() == Grid());
     }
 
-    void Reset(BoundaryCondition bc)
+    void Reset(GridType grid)
     {
         Zero();
-        _bc = bc;
+        _grid = grid;
     }
 
     template<typename A>
     const Field<T, N1, N2, N3>& operator=(const StackContainer<A,T,N1,N2,N3>& other)
     {
-        assert(other.BC() == BC());
+        assert(other.Grid() == Grid());
 
         ParallelPerStack([&other,this](int j1, int j2){
             stack(j1, j2) = other.stack(j1,j2);
@@ -270,7 +270,7 @@ public:
     // seem to explicitly require this
     const Field<T, N1, N2, N3>& operator=(const Field<T, N1, N2, N3>& other)
     {
-        assert(other.BC() == BC());
+        assert(other.Grid() == Grid());
 
         ParallelPerStack([&other,this](int j1, int j2){
             stack(j1, j2) = other.stack(j1,j2);
@@ -281,7 +281,7 @@ public:
 
     bool operator==(const Field<T, N1, N2, N3>& other) const
     {
-        if (other.BC() != BC())
+        if (other.Grid() != Grid())
         {
             return false;
         }
@@ -329,7 +329,7 @@ public:
     template<typename A>
     const Field<T, N1, N2, N3>& operator+=(const StackContainer<A, T, N1, N2, N3>& other)
     {
-        assert(other.BC() == BC());
+        assert(other.Grid() == Grid());
 
         ParallelPerStack([&other,this](int j1, int j2){
             stack(j1, j2) += other.stack(j1, j2);
@@ -340,7 +340,7 @@ public:
     template<typename A>
     const Field<T, N1, N2, N3>& operator-=(const StackContainer<A, T, N1, N2, N3>& other)
     {
-        assert(other.BC() == BC());
+        assert(other.Grid() == Grid());
 
         ParallelPerStack([&other,this](int j1, int j2){
             stack(j1, j2) -= other.stack(j1, j2);
@@ -443,7 +443,7 @@ public:
     {
         slice(0).setZero();
 
-        if (BC() == BoundaryCondition::Neumann)
+        if (Grid() == GridType::Normal)
         {
             slice(N3-1).setZero();
         }
@@ -458,7 +458,7 @@ public:
     {
         slice(0) = slice(1);
 
-        if (BC() == BoundaryCondition::Neumann)
+        if (Grid() == GridType::Normal)
         {
             slice(N3-1) = slice(N3-2);
         }
@@ -469,9 +469,9 @@ public:
         }
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return _bc;
+        return _grid;
     }
 
 private:
@@ -494,7 +494,7 @@ private:
     // stored in column-major ordering of size (N1, N2, N3)
     std::vector<T, aligned_allocator<T>> _data;
 
-    BoundaryCondition _bc;
+    GridType _grid;
 
 };
 
@@ -502,17 +502,17 @@ template<typename T, int N1, int N2, int N3>
 class Field1D : public StackContainer<Map<const Array<T, -1, 1>, Aligned16>, T, N1, N2, N3>
 {
 public:
-    Field1D(BoundaryCondition bc)
+    Field1D(GridType grid)
     : _data(N3)
-    , _bc(bc)
+    , _grid(grid)
     {
         _data.setZero();
     }
 
-    void Reset(BoundaryCondition bc)
+    void Reset(GridType grid)
     {
         Zero();
-        _bc = bc;
+        _grid = grid;
     }
 
     void Zero()
@@ -523,7 +523,7 @@ public:
     template<typename A>
     const Field1D<T, N1, N2, N3>& operator=(const StackContainer<A,T,N1,N2,N3>& other)
     {
-        assert(other.BC() == BC());
+        assert(other.Grid() == Grid());
 
         Get() = other.stack(0, 0);
 
@@ -532,7 +532,7 @@ public:
 
     bool operator==(const Field1D<T, N1, N2, N3>& other) const
     {
-        if (other.BC() != BC())
+        if (other.Grid() != Grid())
         {
             return false;
         }
@@ -588,13 +588,13 @@ public:
         Get()(N3-1) = 0;
     }
 
-    virtual BoundaryCondition BC() const override
+    virtual GridType Grid() const override
     {
-        return _bc;
+        return _grid;
     }
 private:
     Array<T, -1, 1> _data;
-    BoundaryCondition _bc;
+    GridType _grid;
 };
 
 template<int N1, int N2, int N3>
@@ -606,7 +606,7 @@ public:
     template<typename A>
     const Nodal1D<N1, N2, N3>& operator=(const StackContainer<A,stratifloat,N1,N2,N3>& other)
     {
-        assert(other.BC() == this->BC());
+        assert(other.Grid() == this->Grid());
         Field1D<stratifloat, N1, N2, N3>::operator=(other);
         return *this;
     }
@@ -636,8 +636,8 @@ public:
         return *this;
     }
 
-    NodalField(BoundaryCondition bc)
-    : Field<stratifloat, N1, N2, N3>(bc)
+    NodalField(GridType grid)
+    : Field<stratifloat, N1, N2, N3>(grid)
     {
         int dims[] = {N2, N1};
         int odims[] = {N2, N1/2+1};
@@ -662,7 +662,7 @@ public:
 
     void ToModal(ModalField<N1,N2,N3>& other, bool filter = true) const
     {
-        assert(other.BC() == this->BC());
+        assert(other.Grid() == this->Grid());
 
         // do FFT in 1st and 2nd dimensions
 
@@ -764,8 +764,8 @@ public:
         return *this;
     }
 
-    ModalField(BoundaryCondition bc)
-    : Field<complex, N1/2+1, N2, N3>(bc)
+    ModalField(GridType grid)
+    : Field<complex, N1/2+1, N2, N3>(grid)
     {
         inputData.resize(actualN1*N2*N3);
 
@@ -792,7 +792,7 @@ public:
 
     void ToNodal(NodalField<N1, N2, N3>& other) const
     {
-        assert(other.BC() == this->BC());
+        assert(other.Grid() == this->Grid());
 
         // do IFT in 1st and 2nd dimensions
 
@@ -860,7 +860,7 @@ public:
         int j3min = 0;
         int j3max = N3;
 
-        if (this->BC() == BoundaryCondition::Dirichlet)
+        if (this->Grid() == GridType::Staggered)
         {
             j3min = 1;
             j3max = N3-2;
@@ -915,7 +915,7 @@ public:
 
     void Antisymmetrise()
     {
-        // if (this->BC() == BoundaryCondition::Decaying)
+        // if (this->Grid() == GridType::Decaying)
         // {
         //     #pragma omp parallel for
         //     for3D(actualN1,N2,N3)

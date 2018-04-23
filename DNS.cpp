@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 {
     DumpParameters();
 
-    stratifloat targetTime = 150.0;
+    stratifloat targetTime = 400.0;
     stratifloat integrateTarget = 40.0;
     stratifloat energy = 0.001;
 
@@ -24,39 +24,39 @@ int main(int argc, char *argv[])
     else
     {
         std::cout << "Setting ICs..." << std::endl;
-        NeumannNodal   initialU1;
-        NeumannNodal   initialU2;
-        DirichletNodal initialU3;
-        NeumannNodal initialB;
+        NormalNodal   initialU1;
+        NormalNodal   initialU2;
+        StaggeredNodal initialU3;
+        NormalNodal initialB;
         auto x3 = VerticalPoints(L3, N3);
 
 
-        NeumannModal initialu1;
-        NeumannModal initialu2;
-        DirichletModal initialu3;
-        NeumannModal initialb;
+        NormalModal initialu1;
+        NormalModal initialu2;
+        StaggeredModal initialu3;
+        NormalModal initialb;
 
         std::cout << "Calculating Eigenmode..." << std::endl;
 
-        // find which mode to use
-        int mode = 0;
-        stratifloat growth = -1000;
-        for (int m=1; m<5; m++)
-        {
-            stratifloat sigma = LargestGrowth(2*pi*m/L1);
-            if (sigma > growth)
-            {
-                growth = sigma;
-                mode = m;
-            }
-        }
+        // // find which mode to use
+        // int mode = 0;
+        // stratifloat growth = -1000;
+        // for (int m=1; m<5; m++)
+        // {
+        //     stratifloat sigma = LargestGrowth(2*pi*m/L1);
+        //     if (sigma > growth)
+        //     {
+        //         growth = sigma;
+        //         mode = m;
+        //     }
+        // }
 
-        // add the eigenmode
-        EigenModes(2*pi*mode/L1, initialu1, initialu2, initialu3, initialb);
-        initialu1.ToNodal(initialU1);
-        initialu2.ToNodal(initialU2);
-        initialu3.ToNodal(initialU3);
-        initialb.ToNodal(initialB);
+        // // add the eigenmode
+        // EigenModes(2*pi*mode/L1, initialu1, initialu2, initialu3, initialb);
+        // initialu1.ToNodal(initialU1);
+        // initialu2.ToNodal(initialU2);
+        // initialu3.ToNodal(initialU3);
+        // initialb.ToNodal(initialB);
 
         // add a perturbation to allow instabilities to develop
         stratifloat bandmax = 4;
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 
     std::cout << "E0: " << solver.KE() + solver.PE() << std::endl;
 
-    DirichletModal wIntegrated;
+    StaggeredModal wIntegrated;
     stratifloat w2Integrated = 0;
 
     solver.PrepareRun("images/");

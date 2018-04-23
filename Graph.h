@@ -54,7 +54,7 @@ inline void HeatPlot(const NodalField<N1, N2, N3> &U, stratifloat L1, stratifloa
 template<int N1, int N2, int N3>
 inline void HeatPlot(const ModalField<N1, N2, N3> &u, stratifloat L1, stratifloat L3, int j2, std::string filename)
 {
-    NodalField<N1, N2, N3> U(u.BC());
+    NodalField<N1, N2, N3> U(u.Grid());
 
     u.ToNodal(U);
 
@@ -80,7 +80,7 @@ inline void HeatPlot(const NodalField<N1, N2, N3> &U, stratifloat L1, stratifloa
 
     for (int col=0; col<N1; col++)
     {
-        ArrayX y = Evaluate(U.stack(col, j2), x, L3, U.BC());
+        ArrayX y = Evaluate(U.stack(col, j2), x, L3, U.Grid());
 
         for (int row=0; row<rows; row++)
         {
@@ -100,7 +100,7 @@ inline void HeatPlot(const NodalField<N1, N2, N3> &U, stratifloat L1, stratifloa
 template<int N1, int N2, int N3>
 inline void HeatPlot(const ModalField<N1, N2, N3> &u, stratifloat L1, stratifloat L3, int j2, std::string filename)
 {
-    NodalField<N1, N2, N3> U(u.BC());
+    NodalField<N1, N2, N3> U(u.Grid());
     u.ToNodalHorizontal(U);
 
     HeatPlot(U, L1, L3, j2, filename);

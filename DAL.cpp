@@ -14,27 +14,27 @@ int main(int argc, char *argv[])
     IMEXRK solver;
 
     // these are the initial conditions for the current step
-    NeumannModal   u10;
-    NeumannModal   u20;
-    DirichletModal u30;
-    NeumannModal b0;
+    NormalModal   u10;
+    NormalModal   u20;
+    StaggeredModal u30;
+    NormalModal b0;
 
     // these are the initial conditions for the previous step - so we can reset if necessary
-    NeumannModal   previousu10;
-    NeumannModal   previousu20;
-    DirichletModal previousu30;
-    NeumannModal previousb0;
+    NormalModal   previousu10;
+    NormalModal   previousu20;
+    StaggeredModal previousu30;
+    NormalModal previousb0;
 
 
-    NeumannModal   previousv1;
-    NeumannModal   previousv2;
-    DirichletModal previousv3;
-    NeumannModal previousvb;
+    NormalModal   previousv1;
+    NormalModal   previousv2;
+    StaggeredModal previousv3;
+    NormalModal previousvb;
 
     stratifloat previousIntegral = -1000;
 
-    Neumann1D backgroundB;
-    Neumann1D backgroundU;
+    Normal1D backgroundB;
+    Normal1D backgroundU;
     backgroundB.SetValue(InitialB, L3);
     backgroundU.SetValue(InitialU, L3);
 
@@ -69,10 +69,10 @@ int main(int argc, char *argv[])
 
         p = 0;
 
-        NeumannModal   initialU1;
-        NeumannModal   initialU2;
-        DirichletModal initialU3;
-        NeumannModal initialB;
+        NormalModal   initialU1;
+        NormalModal   initialU2;
+        StaggeredModal initialU3;
+        NormalModal initialB;
 
         // put energy in the lowest third of the spatial modes
         initialU1.RandomizeCoefficients(0.3);
@@ -234,8 +234,8 @@ int main(int argc, char *argv[])
         }
 
         {
-            Neumann1D Ubar;
-            Neumann1D Bbar;
+            Normal1D Ubar;
+            Normal1D Bbar;
             solver.SetBackground(Ubar, Bbar);
         }
 

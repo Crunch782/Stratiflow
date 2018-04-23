@@ -5,7 +5,7 @@
 TEST_CASE("Integration of gaussian")
 {
     stratifloat L3 = 2.0f;
-    NodalField<1, 1, 32> gaussian(BoundaryCondition::Dirichlet);
+    NodalField<1, 1, 32> gaussian(GridType::Staggered);
     gaussian.SetValue([](stratifloat z){return exp(-z*z);}, L3);
 
     stratifloat integral = IntegrateAllSpace(gaussian, 1, 1, L3);
@@ -23,18 +23,18 @@ TEST_CASE("Horizontal average")
     constexpr int N2 = 12;
     constexpr int N3 = 28;
 
-    NodalField<N1,N2,N3> f(BoundaryCondition::Dirichlet);
+    NodalField<N1,N2,N3> f(GridType::Staggered);
     f.SetValue([L1, L2](stratifloat x, stratifloat y, stratifloat z){
         return 5*exp(-z*z)+2*sin(2*pi*x/L1)+sin(2*pi*y/L2)*sin(2*pi*y/L2);
     }, L1, L2, L3);
 
-    Nodal1D<N1,N2,N3> expected(BoundaryCondition::Dirichlet);
+    Nodal1D<N1,N2,N3> expected(GridType::Staggered);
     expected.SetValue([L2](stratifloat z){return 5*exp(-z*z)+0.5;}, L3);
 
-    ModalField<N1,N2,N3> fM(BoundaryCondition::Dirichlet);
+    ModalField<N1,N2,N3> fM(GridType::Staggered);
     f.ToModal(fM);
 
-    Nodal1D<N1,N2,N3> average(BoundaryCondition::Dirichlet);
+    Nodal1D<N1,N2,N3> average(GridType::Staggered);
     HorizontalAverage(fM, average);
 
     REQUIRE(average == expected);
@@ -48,7 +48,7 @@ TEST_CASE("Integrate vertically")
     constexpr int N2 = 12;
     constexpr int N3 = 28;
 
-    Nodal1D<N1,N2,N3> f(BoundaryCondition::Dirichlet);
+    Nodal1D<N1,N2,N3> f(GridType::Staggered);
     f.SetValue([](stratifloat z){return exp(-(z-1)*(z-1));}, L3);
 
     stratifloat integral = IntegrateVertically(f, L3);
@@ -66,8 +66,8 @@ TEST_CASE("I test")
     constexpr stratifloat L2 = 4.0f;
     constexpr stratifloat L3 = 5.0f;
 
-    Nodal1D<N1,N2,N3> U_(BoundaryCondition::Dirichlet);
-    NodalField<N1,N2,N3> U1(BoundaryCondition::Dirichlet);
+    Nodal1D<N1,N2,N3> U_(GridType::Staggered);
+    NodalField<N1,N2,N3> U1(GridType::Staggered);
 
     U_.SetValue([](stratifloat z){return tanh(z);}, L3);
 
@@ -75,19 +75,19 @@ TEST_CASE("I test")
         return 10*cos(2*pi*x/L1);
     }, L1, L2, L3);
 
-    NodalField<N1,N2,N3> nnTemp(BoundaryCondition::Dirichlet);
+    NodalField<N1,N2,N3> nnTemp(GridType::Staggered);
     nnTemp = U1+U_;
 
-    ModalField<N1,N2,N3> boundedTemp(BoundaryCondition::Dirichlet);
+    ModalField<N1,N2,N3> boundedTemp(GridType::Staggered);
     nnTemp.ToModal(boundedTemp);
 
-    Nodal1D<N1,N2,N3> ave(BoundaryCondition::Dirichlet);
+    Nodal1D<N1,N2,N3> ave(GridType::Staggered);
     HorizontalAverage(boundedTemp, ave);
 
-    Nodal1D<N1,N2,N3> one(BoundaryCondition::Dirichlet);
+    Nodal1D<N1,N2,N3> one(GridType::Staggered);
     one.SetValue([](stratifloat z){return 1;}, L3);
 
-    Nodal1D<N1,N2,N3> integrand(BoundaryCondition::Dirichlet);
+    Nodal1D<N1,N2,N3> integrand(GridType::Staggered);
     integrand = one + (-1)*ave*ave;
 
     stratifloat result = IntegrateVertically(integrand, L3);

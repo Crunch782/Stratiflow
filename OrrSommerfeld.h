@@ -14,4 +14,4 @@ stratifloat LargestGrowth(stratifloat k,
                           Field1D<complex, N1, N2, N3>* b=nullptr,
                           stratifloat* imag=nullptr);
 
-void EigenModes(stratifloat k, NeumannModal& u1, NeumannModal& u2, DirichletModal& u3, NeumannModal& b);
+void EigenModes(stratifloat k, NormalModal& u1, NormalModal& u2, StaggeredModal& u3, NormalModal& b);

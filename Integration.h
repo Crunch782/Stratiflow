@@ -33,11 +33,11 @@ void RemoveHorizontalAverage(ModalField<N1,N2,N3>& field)
 template<int N1, int N2, int N3>
 stratifloat IntegrateAllSpace(const NodalField<N1,N2,N3>& U, stratifloat L1, stratifloat L2, stratifloat L3)
 {
-    static ModalField<N1,N2,N3> u(U.BC());
-    u.Reset(U.BC());
+    static ModalField<N1,N2,N3> u(U.Grid());
+    u.Reset(U.Grid());
     U.ToModal(u);
-    static Nodal1D<N1,N2,N3> horzAve(U.BC());
-    horzAve.Reset(U.BC());
+    static Nodal1D<N1,N2,N3> horzAve(U.Grid());
+    horzAve.Reset(U.Grid());
     HorizontalAverage(u,horzAve);
     return IntegrateVertically(horzAve,L3)*L1*L2;
 }
@@ -46,9 +46,9 @@ stratifloat IntegrateAllSpace(const NodalField<N1,N2,N3>& U, stratifloat L1, str
 template<typename C, typename T, int N1, int N2, int N3>
 stratifloat InnerProd(const NodalField<N1,N2,N3>& A, const NodalField<N1,N2,N3>& B, stratifloat L3, const StackContainer<C,T,N1,N2,N3>& weight)
 {
-    assert(A.BC() == B.BC());
-    static NodalField<N1,N2,N3> U(A.BC());
-    U.Reset(A.BC());
+    assert(A.Grid() == B.Grid());
+    static NodalField<N1,N2,N3> U(A.Grid());
+    U.Reset(A.Grid());
 
     U = A*B*weight;
 
@@ -58,11 +58,11 @@ stratifloat InnerProd(const NodalField<N1,N2,N3>& A, const NodalField<N1,N2,N3>&
 template<typename C, typename T, int N1, int N2, int N3>
 stratifloat InnerProd(const ModalField<N1,N2,N3>& a, const ModalField<N1,N2,N3>& b, stratifloat L3, const StackContainer<C,T,N1,N2,N3>& weight)
 {
-    static NodalField<N1,N2,N3> A(a.BC());
-    static NodalField<N1,N2,N3> B(b.BC());
+    static NodalField<N1,N2,N3> A(a.Grid());
+    static NodalField<N1,N2,N3> B(b.Grid());
 
-    A.Reset(a.BC());
-    B.Reset(b.BC());
+    A.Reset(a.Grid());
+    B.Reset(b.Grid());
 
 
     a.ToNodal(A);
@@ -74,9 +74,9 @@ stratifloat InnerProd(const ModalField<N1,N2,N3>& a, const ModalField<N1,N2,N3>&
 template<int N1, int N2, int N3>
 stratifloat InnerProd(const NodalField<N1,N2,N3>& A, const NodalField<N1,N2,N3>& B, stratifloat L3)
 {
-    assert(A.BC() == B.BC());
-    static NodalField<N1,N2,N3> U(A.BC());
-    U.Reset(A.BC());
+    assert(A.Grid() == B.Grid());
+    static NodalField<N1,N2,N3> U(A.Grid());
+    U.Reset(A.Grid());
 
     U = A*B;
 
@@ -86,11 +86,11 @@ stratifloat InnerProd(const NodalField<N1,N2,N3>& A, const NodalField<N1,N2,N3>&
 template<int N1, int N2, int N3>
 stratifloat InnerProd(const ModalField<N1,N2,N3>& a, const ModalField<N1,N2,N3>& b, stratifloat L3)
 {
-    static NodalField<N1,N2,N3> A(a.BC());
-    static NodalField<N1,N2,N3> B(b.BC());
+    static NodalField<N1,N2,N3> A(a.Grid());
+    static NodalField<N1,N2,N3> B(b.Grid());
 
-    A.Reset(a.BC());
-    B.Reset(b.BC());
+    A.Reset(a.Grid());
+    B.Reset(b.Grid());
 
     a.ToNodal(A);
     b.ToNodal(B);
@@ -101,7 +101,7 @@ stratifloat InnerProd(const ModalField<N1,N2,N3>& a, const ModalField<N1,N2,N3>&
 template<int N1, int N2, int N3>
 stratifloat InnerProd(const ModalField<N1,N2,N3>& a, const ModalField<N1,N2,N3>& b, stratifloat L3, stratifloat weight)
 {
-    static Nodal1D<N1,N2,N3> w(BoundaryCondition::Neumann);
+    static Nodal1D<N1,N2,N3> w(GridType::Normal);
     w.SetValue([weight](stratifloat z){return weight;}, L3);
     return InnerProd(a, b, L3, w);
 }

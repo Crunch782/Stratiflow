@@ -3,11 +3,11 @@
 #include "Eigen.h"
 #include "Field.h"
 
-MatrixX VerticalSecondDerivativeMatrix(stratifloat L, int N, BoundaryCondition originalBC)
+MatrixX VerticalSecondDerivativeMatrix(stratifloat L, int N, GridType originalGrid)
 {
     ArrayX d;
 
-    if (originalBC == BoundaryCondition::Neumann)
+    if (originalGrid == GridType::Normal)
     {
         d = dz(L, N);
     }
@@ -35,7 +35,7 @@ MatrixX VerticalSecondDerivativeMatrix(stratifloat L, int N, BoundaryCondition o
         }
         else if (j==N-1)
         {
-            if (originalBC == BoundaryCondition::Neumann)
+            if (originalGrid == GridType::Normal)
             {
                 stratifloat h1 = d(N-2);
                 stratifloat h2 = d(N-3);
@@ -47,7 +47,7 @@ MatrixX VerticalSecondDerivativeMatrix(stratifloat L, int N, BoundaryCondition o
                 D(N-1,N-1) = h2/denom;
             }
         }
-        else if (j==N-2 && originalBC == BoundaryCondition::Dirichlet)
+        else if (j==N-2 && originalGrid == GridType::Staggered)
         {
             stratifloat h1 = d(N-3);
             stratifloat h2 = d(N-4);
@@ -75,11 +75,11 @@ MatrixX VerticalSecondDerivativeMatrix(stratifloat L, int N, BoundaryCondition o
     return D;
 }
 
-MatrixX VerticalDerivativeMatrix(stratifloat L, int N, BoundaryCondition originalBC)
+MatrixX VerticalDerivativeMatrix(stratifloat L, int N, GridType originalGrid)
 {
     MatrixX D = MatrixX::Zero(N,N);
 
-    if (originalBC == BoundaryCondition::Neumann)
+    if (originalGrid == GridType::Normal)
     {
         // this is second order because of symmetry
         ArrayX diff = dz(L, N);
@@ -98,19 +98,17 @@ MatrixX VerticalDerivativeMatrix(stratifloat L, int N, BoundaryCondition origina
     return D;
 }
 
-MatrixX VerticalReinterpolationMatrix(stratifloat L, int N, BoundaryCondition originalBC)
+MatrixX VerticalReinterpolationMatrix(stratifloat L, int N, GridType originalGrid)
 {
     // first order interpolation at one set of points of other
     MatrixX D = MatrixX::Zero(N,N);
 
-    if (originalBC == BoundaryCondition::Neumann)
+    if (originalGrid == GridType::Normal)
     {
         D.diagonal(1).setConstant(0.5);
         D.diagonal(0).head(N-1).setConstant(0.5);
 
-        // zero at ends
-        D.row(0).setZero();
-        D.row(N-1).setZero();
+        // zero in ghost layer
         D.row(N-2).setZero();
     }
     else
@@ -121,9 +119,9 @@ MatrixX VerticalReinterpolationMatrix(stratifloat L, int N, BoundaryCondition or
         D.diagonal(-1).head(N-2) = 0.5*diff2.tail(N-2)/diff.segment(1, N-2);
         D.diagonal().segment(1, N-2) = 0.5*diff2.head(N-2)/diff.segment(1, N-2);
 
-        // no derivative at ends
-        D.row(0) = D.row(1);
-        D.row(N-1) = D.row(N-2);
+        // Zero at ends (is this sensible?)
+        D.row(0).setZero();
+        D.row(N-1).setZero();
     }
 
     return D;
