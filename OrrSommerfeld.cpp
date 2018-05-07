@@ -222,13 +222,13 @@ stratifloat LargestGrowth(stratifloat k,
     return largest;
 }
 
-void EigenModes(stratifloat k, NormalModal& u1, NormalModal& u2, StaggeredModal& u3, NormalModal& b)
+stratifloat EigenModes(stratifloat k, NormalModal& u1, NormalModal& u2, StaggeredModal& u3, NormalModal& b)
 {
     // find the vertical profile of eigenmodes
     Field1D<complex, N1, N2, N3> w_hat(GridType::Staggered);
     Field1D<complex, N1, N2, N3> b_hat(GridType::Normal);
 
-    LargestGrowth(k, &w_hat, &b_hat);
+    stratifloat growth = LargestGrowth(k, &w_hat, &b_hat);
 
     // multiply out the modes
     StaggeredNodal W;
@@ -268,4 +268,5 @@ void EigenModes(stratifloat k, NormalModal& u1, NormalModal& u2, StaggeredModal&
     // squire's theorem tells us spanwise velocity is zero
     u2.Zero();
 
+    return growth;
 }
