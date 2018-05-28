@@ -502,19 +502,19 @@ public:
 
     stratifloat PE() const
     {
-        for (int j=0; j<N3; j++)
-        {
-            if(dB_dz.Get()(j)>-0.001 && dB_dz.Get()(j)<0.001)
-            {
-                nnTemp1D.Get()(j) = 0;
-            }
-            else
-            {
-                nnTemp1D.Get()(j) = 1/dB_dz.Get()(j);
-            }
-        }
+        // for (int j=0; j<N3; j++)
+        // {
+        //     if(dB_dz.Get()(j)>-0.001 && dB_dz.Get()(j)<0.001)
+        //     {
+        //         nnTemp1D.Get()(j) = 0;
+        //     }
+        //     else
+        //     {
+        //         nnTemp1D.Get()(j) = 1/dB_dz.Get()(j);
+        //     }
+        // }
 
-        return 0.5f*InnerProd(b, b, L3, -Ri*nnTemp1D);
+        return 0.5f*Ri*InnerProd(b, b, L3);
     }
     void RemoveDivergence(stratifloat pressureMultiplier=1.0f)
     {
