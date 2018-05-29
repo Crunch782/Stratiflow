@@ -381,6 +381,7 @@ public:
         PlotVerticalVelocity(imageDirectory+"/u3/"+filename, N2/2);
         PlotSpanwiseVelocity(imageDirectory+"/u2/"+filename, N2/2);
         PlotStreamwiseVelocity(imageDirectory+"/u1/"+filename, N2/2, includeBackground);
+        PlotPerturbationVorticity(imageDirectory+"/perturbvorticity/"+filename, N2/2);
 
         if (includeBackground)
         {
@@ -388,7 +389,7 @@ public:
         }
         else
         {
-            PlotPerturbationVorticity(imageDirectory+"/perturbvorticity/"+filename, N2/2);
+            //PlotPerturbationVorticity(imageDirectory+"/perturbvorticity/"+filename, N2/2);
             //PlotBuoyancyBG(imageDirectory+"/buoyancyBG/"+filename, N2/2);
         }
     }
