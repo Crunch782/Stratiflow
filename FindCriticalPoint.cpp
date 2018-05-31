@@ -96,13 +96,7 @@ public:
 class FindCriticalPoint : public NewtonKrylov<CriticalPoint>
 {
 public:
-    FindCriticalPoint()
-    {
-        phi.Randomise(0.000001, true);
-    }
-
-    StateVector phi;
-
+    stratifloat weight = 1;
 private:
     virtual CriticalPoint EvalFunction(const CriticalPoint& at) override
     {
@@ -120,7 +114,7 @@ private:
         temp.FullEvolve(T, linearAboutEnd.v, false, false);
 
         result -= at;
-        result.p = at.v.Dot(phi) - 1;
+        result.p = at.v.Energy() - weight;
 
         std:: cout << result.x.Norm2() << " " << result.v.Norm2() << " " << result.p*result.p << std::endl;
 
@@ -168,12 +162,17 @@ private:
         result.v = dv - (1/eps)*(fdv-f) - (1/eps/eps)*(fvdx - fdx - fv + f);
 
         Ri = linearAboutStart.p;
-        result.p = -phi.Dot(dv);
+        result.p = -v.Dot(dv);
 
         return result;
     }
 
-    stratifloat eps = 0.0000001;
+    virtual void EnforceConstraints(CriticalPoint& at)
+    {
+        at.v.Rescale(weight);
+    }
+
+    stratifloat eps = 0.00001;
 };
 
 #include "Arnoldi.h"
@@ -181,45 +180,43 @@ private:
 
 int main(int argc, char *argv[])
 {
+    L3 = std::stof(argv[2]);
+    DumpParameters();
+    StateVector::ResetForParams();
+
     BasicArnoldi eigenSolver;
 
     CriticalPoint guess;
 
-    if (argc==2)
-    {
+    // if (argc==2)
+    // {
         guess.LoadFromFile(argv[1]);
         Ri = guess.p;
-    }
-    else
-    {
-        if (argc==1)
-        {
-            Ri = 0.245525;
-            guess.x.Zero();
-        }
-        else
-        {
-            ExtendedStateVector loadedGuess;
-            loadedGuess.LoadFromFile(argv[1]);
+    // }
+    // else
+    // {
+    //     if (argc==1)
+    //     {
+    //         Ri = 0.245525;
+    //         guess.x.Zero();
+    //     }
+    //     else
+    //     {
+    //         ExtendedStateVector loadedGuess;
+    //         loadedGuess.LoadFromFile(argv[1]);
 
-            guess.x = loadedGuess.x;
-            Ri = loadedGuess.p;
-        }
-        eigenSolver.Run(guess.x, guess.v, true);
-        guess.p = Ri;
-    }
-
+    //         guess.x = loadedGuess.x;
+    //         Ri = loadedGuess.p;
+    //     }
+    //     eigenSolver.Run(guess.x, guess.v, false);
+    //     guess.p = Ri;
+    // }
     FindCriticalPoint solver;
-    solver.phi = guess.v;
-    solver.phi.Rescale(1/(2*guess.x.Norm2()));
+
+    solver.weight = guess.x.Energy();
 
     // scale v
-    stratifloat proj = guess.v.Dot(solver.phi);
-    guess.v *= 1/proj;
-
-    std::cout << "Lengths for debugging: " << solver.phi.Energy() << " " << guess.v.Energy() << " " << guess.x.Energy() << std::endl;
-
-    std::cout << guess.v.Dot(solver.phi) << std::endl;
+    guess.v.Rescale(solver.weight);
 
     solver.Run(guess);
 }
