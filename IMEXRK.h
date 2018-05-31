@@ -280,7 +280,7 @@ public:
         MakeCleanDir(imageDirectory+"/buoyancyBG");
     }
 
-    void PrepareRunLinear(std::string imageDir, bool evolving=true)
+    void PrepareRunLinear(std::string imageDir, bool evolving=true, bool makeDirs = true)
     {
         imageDirectory = imageDir;
 
@@ -296,14 +296,17 @@ public:
             BuildFilenameMap(false);
         }
 
-        MakeCleanDir(imageDirectory+"/u1");
-        MakeCleanDir(imageDirectory+"/u2");
-        MakeCleanDir(imageDirectory+"/u3");
-        MakeCleanDir(imageDirectory+"/buoyancy");
-        MakeCleanDir(imageDirectory+"/pressure");
-        MakeCleanDir(imageDirectory+"/vorticity");
-        MakeCleanDir(imageDirectory+"/perturbvorticity");
-        MakeCleanDir(imageDirectory+"/buoyancyBG");
+        if (makeDirs)
+        {
+            MakeCleanDir(imageDirectory+"/u1");
+            MakeCleanDir(imageDirectory+"/u2");
+            MakeCleanDir(imageDirectory+"/u3");
+            MakeCleanDir(imageDirectory+"/buoyancy");
+            MakeCleanDir(imageDirectory+"/pressure");
+            MakeCleanDir(imageDirectory+"/vorticity");
+            MakeCleanDir(imageDirectory+"/perturbvorticity");
+            MakeCleanDir(imageDirectory+"/buoyancyBG");
+        }
     }
 
     void PlotBuoyancy(std::string filename, int j2, bool includeBackground = true) const
