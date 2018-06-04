@@ -103,15 +103,8 @@ private:
         CriticalPoint result;
 
         Ri = at.p;
-        at.x.FullEvolve(T, result.x, false);
-        at.v.LinearEvolve(T, at.x, result.x, result.v);
-
-        // need this stuff for later
-        linearAboutStart = at;
-        linearAboutEnd.x = result.x;
-        linearAboutEnd.p = at.p;
-        StateVector temp = at.x + eps*at.v;
-        temp.FullEvolve(T, linearAboutEnd.v, false, false);
+        at.x.FullEvolve(T, result.x, false, false);
+        at.v.LinearEvolve(T, at.x, result.v);
 
         result -= at;
         result.p = at.v.Energy() - weight;
@@ -121,58 +114,11 @@ private:
         return result;
     }
 
-    virtual CriticalPoint EvalLinearised(const CriticalPoint& at) override
-    {
-
-        StateVector x = linearAboutStart.x;
-
-        StateVector dx = at.x;
-        StateVector dv = at.v;
-
-        StateVector v = linearAboutStart.v;
-        StateVector f = linearAboutEnd.x;
-
-        StateVector fdv;
-        StateVector fdx, fvdx;
-
-        StateVector fv = linearAboutEnd.v;
-
-        StateVector temp;
-
-        Ri = linearAboutStart.p;
-
-        temp = x + eps*dv;
-        temp.FullEvolve(T, fdv, false, false);
-
-
-        Ri = linearAboutStart.p + eps*at.p;
-
-        temp = x;
-        temp.MulAdd(eps,dx);
-        temp.FullEvolve(T, fdx, false, false);
-
-        temp.MulAdd(eps,v);
-        temp.FullEvolve(T, fvdx, false, false);
-
-
-        CriticalPoint result;
-        //          I.dx      - J.dx
-        result.x = dx - (1/eps)*(fdx-f);
-        //         I.dv  -     J.dv                  - dx.H.v
-        result.v = dv - (1/eps)*(fdv-f) - (1/eps/eps)*(fvdx - fdx - fv + f);
-
-        Ri = linearAboutStart.p;
-        result.p = -v.Dot(dv);
-
-        return result;
-    }
-
     virtual void EnforceConstraints(CriticalPoint& at)
     {
+        Ri = at.p;
         at.v.Rescale(weight);
     }
-
-    stratifloat eps = 0.00001;
 };
 
 #include "Arnoldi.h"
@@ -180,9 +126,9 @@ private:
 
 int main(int argc, char *argv[])
 {
-    L3 = std::stof(argv[2]);
-    DumpParameters();
-    StateVector::ResetForParams();
+    // L3 = std::stof(argv[2]);
+    // DumpParameters();
+    // StateVector::ResetForParams();
 
     BasicArnoldi eigenSolver;
 
@@ -190,8 +136,9 @@ int main(int argc, char *argv[])
 
     // if (argc==2)
     // {
-        guess.LoadFromFile(argv[1]);
-        Ri = guess.p;
+
+    //    guess.LoadFromFile(argv[1]);
+    //    Ri = guess.p;
     // }
     // else
     // {
@@ -211,9 +158,17 @@ int main(int argc, char *argv[])
     //     eigenSolver.Run(guess.x, guess.v, false);
     //     guess.p = Ri;
     // }
-    FindCriticalPoint solver;
 
-    solver.weight = guess.x.Energy();
+    ExtendedStateVector loadedGuess;
+    loadedGuess.LoadFromFile(argv[1]);
+
+    guess.x = loadedGuess.x;
+    Ri = loadedGuess.p;
+
+    guess.p = Ri;
+    guess.v = guess.x;
+
+    FindCriticalPoint solver;
 
     // scale v
     guess.v.Rescale(solver.weight);
