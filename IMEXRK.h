@@ -480,11 +480,11 @@ public:
         stratifloat delta2 = L2/N2;
         stratifloat delta3 = z(N3/2) - z(N3/2+1); // smallest gap in middle
 
-        stratifloat cfl = U1_tot.Max()/delta1 + U2_tot.Max()/delta2 + U3_tot.Max()/delta3;
+        stratifloat cfl = (1+U1_tot.Max())/delta1 + U2_tot.Max()/delta2 + U3_tot.Max()/delta3;
         cfl *= deltaT;
 
         // update timestep for target cfl
-        constexpr stratifloat targetCFL = 0.4;
+        constexpr stratifloat targetCFL = 0.6;
         deltaT *= targetCFL / cfl;
         UpdateForTimestep();
 
@@ -1189,11 +1189,13 @@ private:
         RemoveHorizontalAverage(NormalTemp);
         r3 -= Ri*Reinterpolate(NormalTemp); // buoyancy force
 
+        nnTemp = U1_tot + U_;
+
         //////// NONLINEAR TERMS ////////
-        InterpolateProduct(U1, U1_tot, NormalTemp);
+        InterpolateProduct(U1, nnTemp, NormalTemp);
         r1 -= 2.0*ddx(NormalTemp);
 
-        InterpolateProduct(U1_tot, U1, U3, U3_tot, StaggeredTemp);
+        InterpolateProduct(nnTemp, U1, U3, U3_tot, StaggeredTemp);
         r3 -= ddx(StaggeredTemp);
         r1 -= ddz(StaggeredTemp);
 
@@ -1209,13 +1211,13 @@ private:
             r3 -= ddy(StaggeredTemp);
             r2 -= ddz(StaggeredTemp);
 
-            InterpolateProduct(U2_tot, U2, U1, U1_tot, NormalTemp);
+            InterpolateProduct(U2_tot, U2, U1, nnTemp, NormalTemp);
             r1 -= ddy(NormalTemp);
             r2 -= ddx(NormalTemp);
         }
 
         // buoyancy nonlinear terms
-        InterpolateProduct(U1_tot, U1, B, B_tot, NormalTemp);
+        InterpolateProduct(nnTemp, U1, B, B_tot, NormalTemp);
         rB -= ddx(NormalTemp);
 
         if(ThreeDimensional)
@@ -1226,6 +1228,11 @@ private:
 
         InterpolateProduct(B, B_tot, U3_tot, U3, StaggeredTemp);
         rB -= ddz(StaggeredTemp);
+
+        // advection term from background buoyancy
+        ndTemp = U3*dB_dz;
+        ndTemp.ToModal(StaggeredTemp);
+        rB -= Reinterpolate(StaggeredTemp);
     }
 
     void BuildRHSAdjoint()
