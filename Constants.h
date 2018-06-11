@@ -86,3 +86,9 @@ enum class GridType
     Normal,
     Staggered // for vertical velocity. N-1 of these
 };
+
+template <typename T>
+int sgn(T val)
+{
+    return (T(0) < val) - (val < T(0));
+}
