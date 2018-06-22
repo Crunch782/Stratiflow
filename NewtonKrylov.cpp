@@ -32,6 +32,10 @@ int main(int argc, char *argv[])
         {
             std::cout << "Interpretting " << argv[2] << " as path to guess" << std::endl;
             guess.LoadFromFile(argv[2]);
+
+            // ensure the perturbation doesn't have net flow
+            RemoveAverage(guess.u1, L3);
+            RemoveAverage(guess.b, L3);
         }
         else
         {

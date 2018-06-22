@@ -15,7 +15,9 @@
 #include <dirent.h>
 #include <map>
 
+#ifdef USE_OMP
 #include <omp.h>
+#endif
 
 #include <cstdio>
 #include <iostream>

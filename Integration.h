@@ -60,6 +60,16 @@ void RemoveHorizontalAverage(ModalField<N1,N2,N3>& field)
 }
 
 template<int N1, int N2, int N3>
+void RemoveAverage(ModalField<N1,N2,N3>& field, stratifloat L3)
+{
+    stratifloat mean = IntegrateAllSpace(field, 1, 1, L3)/L3/2;
+    if_root
+    {
+        field.stack(0,0) -= mean;
+    } endif
+}
+
+template<int N1, int N2, int N3>
 stratifloat IntegrateAllSpace(const ModalField<N1,N2,N3>& u, stratifloat L1, stratifloat L2, stratifloat L3)
 {
     static Nodal1D<N1,N2,N3> horzAve(u.BC());
